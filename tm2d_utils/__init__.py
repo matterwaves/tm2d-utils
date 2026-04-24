@@ -21,6 +21,8 @@ from .fftshift_util import fftshift
 
 from .whitener import whiten_image, whiten_buffer
 
+from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_indicies_of_best_match
+
 from .data_handler import ParticleStack
 
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
@@ -44,6 +46,8 @@ all = (
     "fftshift",
     "whiten_image",
     "whiten_buffer",
+    "get_pixel_z_scores",
+    "get_locations_and_indicies_of_best_match",
     "ParticleStack",
     "OrientationRegion",
     "get_orientations_cube",
