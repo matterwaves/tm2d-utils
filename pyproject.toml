@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tm2d-utils"
+version = "0.1.0"
+authors = [
+  { name="Shahar Sandhaus", email="shahar.sandhaus@berkeley.edu" },
+]
+description = "A Python module for orchestrating and dispatching large computations across multi-GPU systems using Vulkan."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 2 - Pre-Alpha",
+]
+dependencies = [
+    "setuptools>=59.0",
+    "numpy",
+    "vkdispatch==0.1.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/sharhar/tm2d"
+Issues = "https://github.com/sharhar/tm2d/issues"
+
+[tool.setuptools]
+packages = [
+    "tm2d_utils",
+]
+
+[project.optional-dependencies]
+healpy = ["healpy"]
