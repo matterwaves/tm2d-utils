@@ -8,3 +8,5 @@ data/
 
 .DS_Store
 */.DS_Store
+
+tm2d_utils.egg-info/

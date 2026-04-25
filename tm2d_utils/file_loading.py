@@ -1,10 +1,12 @@
 import numpy as np
+import dataclasses
 
-import vkdispatch as vd
-import vkdispatch.codegen as vc
-from vkdispatch.codegen.abbreviations import *
+@dataclasses.dataclass
+class DensityData:
+    density: np.ndarray
+    pixel_size: float
 
-def load_coords_from_npz(file_path, remove_h: bool = True):
+def load_coords_from_npz(file_path, remove_h: bool = True) -> np.ndarray:
     atom_data = np.load(file_path)
     atom_coords: np.ndarray = atom_data["coords"].astype(np.float32)
 
@@ -16,10 +18,11 @@ def load_coords_from_npz(file_path, remove_h: bool = True):
 
     return atom_coords
 
-def load_density_from_mrc(file_path):
+def load_density_from_mrc(file_path) -> DensityData:
     import mrcfile
 
     with mrcfile.open(file_path) as mrc:
-        print("Pixel size:", mrc.voxel_size.x, mrc.voxel_size.y, mrc.voxel_size.z)
-
-        return mrc.data.astype(np.complex64)
+        return DensityData(
+            density=mrc.data.astype(np.complex64),
+            pixel_size=mrc.voxel_size.x
+        )
