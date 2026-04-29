@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
   { name="Shahar Sandhaus", email="shahar.sandhaus@berkeley.edu" },
 ]
-description = "A Python module for orchestrating and dispatching large computations across multi-GPU systems using Vulkan."
+description = "Utilities for the tm2d library"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -20,7 +20,8 @@ classifiers = [
 dependencies = [
     "setuptools>=59.0",
     "numpy",
-    "vkdispatch==0.1.0"
+    "tm2d==0.2.0",
+    "healpy"
 ]
 
 [project.urls]
@@ -31,6 +32,3 @@ Issues = "https://github.com/sharhar/tm2d/issues"
 packages = [
     "tm2d_utils",
 ]
-
-[project.optional-dependencies]
-healpy = ["healpy"]
