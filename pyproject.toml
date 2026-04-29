@@ -25,8 +25,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sharhar/tm2d"
-Issues = "https://github.com/sharhar/tm2d/issues"
+Homepage = "https://github.com/matterwaves/tm2d-utils"
+Issues = "https://github.com/matterwaves/tm2d-utils/issues"
 
 [tool.setuptools]
 packages = [

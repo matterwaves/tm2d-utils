@@ -1,4 +1,5 @@
 import numpy as np
+import healpy as hp
 
 from typing import Union
 
@@ -66,7 +67,7 @@ def apply_OOPA_symmetry(out_of_plane_angles: np.ndarray, region: OrientationRegi
     if symmetry_type == "C":
         if symmetry_number == 0:
             raise ValueError("Symmetry number must be greater than 0 for symmetry type C.")
-        
+
         return out_of_plane_angles[
             out_of_plane_angles[:, 0] <= (360 / symmetry_number)
         ]
@@ -78,7 +79,7 @@ def apply_OOPA_symmetry(out_of_plane_angles: np.ndarray, region: OrientationRegi
             return out_of_plane_angles[
                 (out_of_plane_angles[:, 1] <= 90)
             ]
-        
+
         shifted_out_of_plane_angles = np.copy(out_of_plane_angles)
         shifted_out_of_plane_angles[:, 0] = np.mod(shifted_out_of_plane_angles[:, 0] + 180, 360)
         shifted_out_of_plane_angles[:, 0] = shifted_out_of_plane_angles[:, 0] - 180
@@ -113,7 +114,7 @@ def apply_OOPA_symmetry(out_of_plane_angles: np.ndarray, region: OrientationRegi
         _4_fold_axis_by_3_fold_axis_1 = make_normed_vector([-1, 1, 0])
 
         directions_array = angles_to_directions(out_of_plane_angles)
-        
+
         return out_of_plane_angles[
             (out_of_plane_angles[:, 0] >= 45) &
             (out_of_plane_angles[:, 0] <= 135) &
@@ -130,7 +131,7 @@ def apply_OOPA_symmetry(out_of_plane_angles: np.ndarray, region: OrientationRegi
         _3_fold_axis_by_5_fold_axis_1 = make_normed_vector([0.4999999839058737,
                                                             -0.8090170074556163,
                                                             0.3090169861701543])
-        
+
         directions_array = angles_to_directions(out_of_plane_angles)
 
         return out_of_plane_angles[
@@ -171,13 +172,13 @@ def make_rotation_array_from_OOPA_and_region(out_of_plane_angles: np.ndarray,  p
 
     if merge_out_and_in_plane:
         return make_orientations_array(out_of_plane_angles, in_plane_angles)
-    
+
     return out_of_plane_angles, in_plane_angles
 
 def get_orientations_mercator(angular_step_size: float, psi_step_size: float, region: Union[OrientationRegion, str, None] = None, merge_out_and_in_plane: bool = True):
     return make_rotation_array_from_OOPA_and_region(
-        get_OOPA_from_region_limits(resolve_region_arg(region), angular_step_size), 
-        psi_step_size, 
+        get_OOPA_from_region_limits(resolve_region_arg(region), angular_step_size),
+        psi_step_size,
         region,
         merge_out_and_in_plane
     )
@@ -212,7 +213,7 @@ def get_orientations_cube(angular_step_size: float, psi_step_size: float, region
     faces[5, :, 0] = X.flatten()
     faces[5, :, 1] = Y.flatten()
     faces[5, :, 2] = 1
-    
+
     # Combine all the faces into one array
     points = faces.reshape(-1, 3)
 
@@ -228,19 +229,14 @@ def get_orientations_cube(angular_step_size: float, psi_step_size: float, region
     return make_rotation_array_from_OOPA_and_region(out_of_plane_angles, psi_step_size, region, merge_out_and_in_plane)
 
 def get_orientations_healpix(angular_step_size: float, psi_step_size: float, region: Union[OrientationRegion, str, None] = None, merge_out_and_in_plane: bool = True):
-    try:
-        import healpy as hp
+    steradian_step = np.deg2rad(angular_step_size) ** 2
+    npix = int(np.ceil(4 * np.pi / steradian_step))
 
-        steradian_step = np.deg2rad(angular_step_size) ** 2
-        npix = int(np.ceil(4 * np.pi / steradian_step))
+    nside_guess = np.sqrt(npix / 12)
+    nside = int(2 ** np.round(np.log2(nside_guess)))
+    pixels = np.arange(npix)
+    theta_values, phi_values = hp.pix2ang(nside, pixels)
 
-        nside_guess = np.sqrt(npix / 12)
-        nside = int(2 ** np.round(np.log2(nside_guess)))
-        pixels = np.arange(npix)
-        theta_values, phi_values = hp.pix2ang(nside, pixels)
+    out_of_plane_angles = np.array([np.rad2deg(phi_values), np.rad2deg(theta_values)]).T
 
-        out_of_plane_angles = np.array([np.rad2deg(phi_values), np.rad2deg(theta_values)]).T
-
-        return make_rotation_array_from_OOPA_and_region(out_of_plane_angles, psi_step_size, region, merge_out_and_in_plane)
-    except ImportError:
-        raise ImportError("Healpy is required to use this function. Please install it using 'pip install tm2d[healpy]'.")
+    return make_rotation_array_from_OOPA_and_region(out_of_plane_angles, psi_step_size, region, merge_out_and_in_plane)

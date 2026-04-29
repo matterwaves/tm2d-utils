@@ -27,7 +27,7 @@ from .data_handler import ParticleStack
 
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 
-all = (
+__all__ = (
     "load_coords_from_npz",
     "load_density_from_mrc",
     "normalize_signal",
