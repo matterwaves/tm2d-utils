@@ -31,6 +31,9 @@ from .ctf_utils import generate_ctf
 
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 
+from . import simulate
+from . import visualization
+
 __all__ = (
     "load_coords_from_npz",
     "load_density_from_mrc",
@@ -63,4 +66,6 @@ __all__ = (
     "get_orientations_cube",
     "get_orientations_healpix",
     "get_orientations_mercator",
+    "simulate",
+    "visualization",
 )
