@@ -234,7 +234,7 @@ def get_orientations_healpix(angular_step_size: float, psi_step_size: float, reg
 
     nside_guess = np.sqrt(npix / 12)
     nside = int(2 ** np.round(np.log2(nside_guess)))
-    pixels = np.arange(npix)
+    pixels = np.arange(hp.nside2npix(nside))
     theta_values, phi_values = hp.pix2ang(nside, pixels)
 
     out_of_plane_angles = np.array([np.rad2deg(phi_values), np.rad2deg(theta_values)]).T
