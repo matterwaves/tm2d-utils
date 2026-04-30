@@ -27,6 +27,8 @@ from .data_handler import ParticleStack
 
 from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
+from .ctf_utils import generate_ctf
+
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 
 __all__ = (
@@ -54,6 +56,7 @@ __all__ = (
     "ctf_like_theia",
     "ctf_like_krios",
     "ctf_like_titan",
+    "generate_ctf",
     "OrientationRegion",
     "get_orientations_cube",
     "get_orientations_healpix",
