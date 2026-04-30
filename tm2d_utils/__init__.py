@@ -25,6 +25,8 @@ from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_ind
 
 from .data_handler import ParticleStack
 
+from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
+
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 
 __all__ = (
@@ -49,6 +51,9 @@ __all__ = (
     "get_pixel_z_scores",
     "get_locations_and_indicies_of_best_match",
     "ParticleStack",
+    "ctf_like_theia",
+    "ctf_like_krios",
+    "ctf_like_titan",
     "OrientationRegion",
     "get_orientations_cube",
     "get_orientations_healpix",
