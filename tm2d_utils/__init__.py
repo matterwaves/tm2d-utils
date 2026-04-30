@@ -19,7 +19,7 @@ from .rotation_matricies import get_cisTEM_rotation_matrix
 
 from .fftshift_util import fftshift
 
-from .whitener import whiten_image, whiten_buffer
+from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, low_pass_filter_image
 
 from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_indicies_of_best_match
 
@@ -50,6 +50,8 @@ __all__ = (
     "fftshift",
     "whiten_image",
     "whiten_buffer",
+    "high_pass_filter_image",
+    "low_pass_filter_image",
     "get_pixel_z_scores",
     "get_locations_and_indicies_of_best_match",
     "ParticleStack",
