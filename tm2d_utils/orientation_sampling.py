@@ -240,3 +240,25 @@ def get_orientations_healpix(angular_step_size: float, psi_step_size: float, reg
     out_of_plane_angles = np.array([np.rad2deg(phi_values), np.rad2deg(theta_values)]).T
 
     return make_rotation_array_from_OOPA_and_region(out_of_plane_angles, psi_step_size, region, merge_out_and_in_plane)
+
+def oop_ang_step_from_oop_count(N_oop):
+    return np.rad2deg(np.sqrt(4 * np.pi / N_oop)) # [deg]
+
+def ip_ang_step_from_oop_count(N_oop):
+    N_ip = np.sqrt(np.pi * N_oop)
+    return np.rad2deg(2 * np.pi / N_ip) # [deg]
+
+def crowther_ang_step_from_resolution(d, D):
+    return np.rad2deg(d / D) # [deg]
+
+def oop_count_from_oop_ang_step(ang_step_oop):
+    return 4 * np.pi / np.deg2rad(ang_step_oop)**2
+
+def ip_count_from_ip_ang_step(ang_step_ip):
+    return 2 * np.pi / np.deg2rad(ang_step_ip)
+
+def resolution_from_oop_count(N_oop, D):
+    return np.sqrt(4 * np.pi / N_oop) * D # [A]
+
+def resolution_from_ip_count(N_ip, D):
+    return 2 * np.pi / N_ip * D # [A]
