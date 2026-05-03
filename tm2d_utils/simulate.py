@@ -31,7 +31,8 @@ def projected_potential_from_coords_and_pose(
 
 def pdf_from_coords_and_pose(
         coords, pose, ctf_params, pixel_size, pot_shape,
-        specimen_thickness_A=0, inelastic_mfp_A=ice_mpf_A):
+        specimen_thickness_A=0, inelastic_mfp_A=ice_mpf_A,
+        offset_background=True):
 
     # get template
     template_atomic = tm2d.TemplateAtomic(
@@ -47,7 +48,8 @@ def pdf_from_coords_and_pose(
     ).read_real(0)[0].copy()
 
     # shift background to 1
-    pdf += 1
+    if offset_background:
+        pdf += 1
 
     # scale for solvent
     if specimen_thickness_A > 0:
@@ -70,3 +72,13 @@ def atom_histogram_from_coords_and_pose(
     atom_histogram = ta.read_real(0)[0]
 
     return atom_histogram
+
+def dose_A2_to_pixel(dose_A2, pixel_size):
+    return dose_A2 * pixel_size ** 2 # convert [e/A^2] to [e/pix]
+
+def get_image_from_pdf(pdf, dose_per_A2, pixel_size, snr=1):
+    dose_per_pix = dose_A2_to_pixel(dose_per_A2, pixel_size) # [e/pix]
+    white_noise = np.random.normal(0, np.sqrt(1 / snr), size=pdf.shape)
+    pdf_noisy = pdf + white_noise # add white noise
+    pdf_noisy[pdf_noisy < 0] = 0 # enforce non-negativity
+    return dose_per_pix * pdf_noisy # [e]

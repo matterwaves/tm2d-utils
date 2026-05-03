@@ -8,7 +8,6 @@ from .optics_functions import get_beta
 from .optics_functions import get_sigmaE
 from .optics_functions import get_eWlenFromHT
 from .optics_functions import get_ghost_spacing
-from .optics_functions import dose_A2ToPix
 
 from .image_processing import normalize_image
 from .image_processing import downsample_image
@@ -29,7 +28,12 @@ from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
 from .ctf_utils import generate_ctf
 
-from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
+from .orientation_sampling import OrientationRegion
+from .orientation_sampling import get_orientations_cube, get_orientations_healpix, get_orientations_mercator
+from .orientation_sampling import crowther_ang_step_from_resolution
+from .orientation_sampling import get_random_pose
+
+from .simulate import dose_A2_to_pixel, get_image_from_pdf
 
 from . import simulate
 from . import visualization
@@ -44,7 +48,6 @@ __all__ = (
     "get_sigmaE",
     "get_eWlenFromHT",
     "get_ghost_spacing",
-    "dose_A2ToPix",
     "normalize_image",
     "downsample_image",
     "process_raw_micrograph",
@@ -66,6 +69,10 @@ __all__ = (
     "get_orientations_cube",
     "get_orientations_healpix",
     "get_orientations_mercator",
+    "crowther_ang_step_from_resolution",
+    "get_random_pose",
+    "dose_A2_to_pixel",
+    "get_image_from_pdf",
     "simulate",
     "visualization",
 )
