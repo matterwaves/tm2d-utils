@@ -98,6 +98,13 @@ def get_hpf(shape: tuple, pixel_size: float, cuton_start: float, cuton_end: floa
     s_nyq = 0.5 / pixel_size
     return raised_cosine_taper(srad, s_nyq, r0_frac=cuton_start / s_nyq, r1_frac=cuton_end / s_nyq)
 
+def get_lpf(shape: tuple, pixel_size: float, cuton_start: float, cuton_end: float):
+    srow, scol = freq_axes(shape, pixel_size)
+    srad = radius_grid(srow, scol)
+    s_nyq = 0.5 / pixel_size
+    hpf_taper = raised_cosine_taper(srad, s_nyq, r0_frac=cuton_start / s_nyq, r1_frac=cuton_end / s_nyq)
+    return 1.0 - hpf_taper
+
 def apply_fourier_filt2d(im: np.ndarray, filt2d: np.ndarray):
     """Apply a provided 2d filter in fourier space (fftshifted)."""
     im_ft = np.fft.fftshift(np.fft.fft2(im))
@@ -150,7 +157,22 @@ def high_pass_filter_image(
     """
     hpf = get_hpf(im.shape, pixel_size, cuton_start, cuton_end)
     im_filt = apply_fourier_filt2d(im, hpf)
-    return im_filt, hpf if return_filter else im_filt
+    return (im_filt, hpf) if return_filter else im_filt
+
+def low_pass_filter_image(
+    im: np.ndarray,
+    pixel_size: float,
+    cuton_start: float,
+    cuton_end: float,
+    return_filter: bool = False,
+):
+    """
+    Low-pass filter an image in fourier space using a raised-cosine taper.
+    - cuton_start, cuton_end are in [1/A]
+    """
+    lpf = get_lpf(im.shape, pixel_size, cuton_start, cuton_end)
+    im_filt = apply_fourier_filt2d(im, lpf)
+    return (im_filt, lpf) if return_filter else im_filt
 
 def whiten_image(
     im: np.ndarray,

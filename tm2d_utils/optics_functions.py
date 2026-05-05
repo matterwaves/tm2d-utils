@@ -53,12 +53,6 @@ def get_ghost_spacing(f_OL, HT, wlen_L=1.064e4):
     wlen_e = get_eWlenFromHT(HT) # [A] electron wavelength
     return 2 * wlen_e * f_OL / wlen_L # [A]
 
-def dose_A2ToPix(dose_A2, pix_size):
-    return dose_A2 * pix_size ** 2 # convert [e/A^2] to [e/pix]
-
 def get_protein_radius(coords):
     coords -= np.mean(coords, axis=0) # subtract center of mass
     return np.sqrt((coords ** 2).sum(axis=1)).max()
-
-def get_random_pose(poses_list):
-    return poses_list[np.random.randint(0, poses_list.shape[0]), :] # [deg]
