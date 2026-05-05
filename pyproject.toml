@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tm2d-utils"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Shahar Sandhaus", email="shahar.sandhaus@berkeley.edu" },
 ]
@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
     "setuptools>=59.0",
     "numpy",
-    "tm2d==0.2.0",
+    "tm2d==0.2.1",
     "healpy"
 ]
 
