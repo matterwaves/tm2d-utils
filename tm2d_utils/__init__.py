@@ -29,6 +29,8 @@ from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
 from .orientation_sampling import OrientationRegion, get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 
+from .tm2d_runners import run_tm2d_atomic_params, run_tm2d_atomic_pixels, run_tm2d_density_params, run_tm2d_density_pixels
+
 __all__ = (
     "load_coords_from_npz",
     "load_density_from_mrc",
@@ -58,4 +60,8 @@ __all__ = (
     "get_orientations_cube",
     "get_orientations_healpix",
     "get_orientations_mercator",
+    "run_tm2d_atomic_params",
+    "run_tm2d_atomic_pixels",
+    "run_tm2d_density_params",
+    "run_tm2d_density_pixels"
 )

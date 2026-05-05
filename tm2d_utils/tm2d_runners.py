@@ -6,7 +6,6 @@ from .file_loading import DensityData
 def run_tm2d_atomic_pixels(
                         micrographs: np.ndarray,
                         param_set: tm2d.ParamSet,
-                        ctf_params: tm2d.CTFParams,
                         template_box_size: tuple[int, int],
                         atomic_coords: np.ndarray,
                         template_batch_size: int = 4,
@@ -28,7 +27,7 @@ def run_tm2d_atomic_pixels(
             template_shape=template_box_size
         ),
         results=results,
-        ctf_params=ctf_params,
+        ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
@@ -42,7 +41,6 @@ def run_tm2d_atomic_pixels(
 def run_tm2d_atomic_params(
                         micrographs: np.ndarray,
                         param_set: tm2d.ParamSet,
-                        ctf_params: tm2d.CTFParams,
                         template_box_size: tuple[int, int],
                         atomic_coords: np.ndarray,
                         template_batch_size: int = 4,
@@ -64,7 +62,7 @@ def run_tm2d_atomic_params(
             template_shape=template_box_size
         ),
         results=results,
-        ctf_params=ctf_params,
+        ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
@@ -78,7 +76,6 @@ def run_tm2d_atomic_params(
 def run_tm2d_density_pixels(
                         micrographs: np.ndarray,
                         param_set: tm2d.ParamSet,
-                        ctf_params: tm2d.CTFParams,
                         density: DensityData,
                         template_batch_size: int = 4,
                         enable_progress_bar: bool = False):
@@ -99,7 +96,7 @@ def run_tm2d_density_pixels(
             template_shape=template.get_shape()
         ),
         results=results,
-        ctf_params=ctf_params,
+        ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
@@ -113,7 +110,6 @@ def run_tm2d_density_pixels(
 def run_tm2d_density_params(
                         micrographs: np.ndarray,
                         param_set: tm2d.ParamSet,
-                        ctf_params: tm2d.CTFParams,
                         density: DensityData,
                         template_batch_size: int = 4,
                         enable_progress_bar: bool = False):
@@ -134,7 +130,7 @@ def run_tm2d_density_params(
             template_shape=template.get_shape()
         ),
         results=results,
-        ctf_params=ctf_params,
+        ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
