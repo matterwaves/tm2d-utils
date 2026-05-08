@@ -22,7 +22,7 @@ from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, low_p
 
 from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_indicies_of_best_match
 
-from .data_handler import ParticleStack
+from .particle_stack import ParticleStack
 
 from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
@@ -32,6 +32,10 @@ from .orientation_sampling import OrientationRegion
 from .orientation_sampling import get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 from .orientation_sampling import crowther_ang_step_from_resolution
 from .orientation_sampling import get_random_pose
+
+from .orientation_metrics import euler_geodesic_error
+from .orientation_metrics import rotation_geodesic_error
+from .orientation_metrics import point_group_symmetry_matrices
 
 from .simulate import dose_A2_to_pixel, get_image_from_pdf
 
@@ -74,9 +78,12 @@ __all__ = (
     "run_tm2d_atomic_params",
     "run_tm2d_atomic_pixels",
     "run_tm2d_density_params",
-    "run_tm2d_density_pixels"
+    "run_tm2d_density_pixels",
     "crowther_ang_step_from_resolution",
     "get_random_pose",
+    "euler_geodesic_error",
+    "rotation_geodesic_error",
+    "point_group_symmetry_matrices",
     "dose_A2_to_pixel",
     "get_image_from_pdf",
     "simulate",

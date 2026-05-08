@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 from cmcrameri import cm
 
+def make_cmap_cm(n, cmap=cm.lipari, clip=(0.0, 0.9)):
+    """Generate a colormap with n colors from a given colormap, optionally clipping the range."""
+    return cmap(np.linspace(clip[0], clip[1], n))
+
 def make_default_fig(figsize=(5, 5)):
     fig, ax = plt.subplots(figsize=figsize)
     return fig, ax
