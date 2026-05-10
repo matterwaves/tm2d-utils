@@ -22,66 +22,62 @@ def euler_to_rotation_matrix(angles):
 
             [phi, theta, psi]
 
+        May be shape (3,) or (N, 3).
+
     Returns
     -------
     rotation_matrix : np.ndarray
-        3x3 rotation matrix.
+        3x3 rotation matrix, or (N, 3, 3) for batched input.
     """
 
     angles = np.asarray(angles, dtype=np.float32)
 
-    if angles.shape != (3,):
-        raise ValueError('angles must have shape (3,), ordered as [phi, theta, psi].')
+    if angles.shape == (3,):
+        rotation_matrix = get_cisTEM_rotation_matrix(angles[None, :])[0, :3, :3]
+        return rotation_matrix.astype(np.float64)
 
-    # get_cisTEM_rotation_matrix expects shape (N, 3) and returns shape (N, 4, 4).
-    # The top-left 3x3 block is the actual 3D rotation matrix.
-    rotation_matrix = get_cisTEM_rotation_matrix(angles[None, :])[0, :3, :3]
+    if angles.ndim == 2 and angles.shape[1] == 3:
+        rotation_matrices = get_cisTEM_rotation_matrix(angles)[:, :3, :3]
+        return rotation_matrices.astype(np.float64)
 
-    return rotation_matrix.astype(np.float64)
+    raise ValueError('angles must have shape (3,) or (N, 3), ordered as [phi, theta, psi].')
 
 
 def rotation_geodesic_error(rotation_matrix_0, rotation_matrix_1, degrees=True):
     """
     Compute the geodesic distance between two 3D rotation matrices.
 
-    The result is the angle of the relative rotation:
-
-        R_delta = R0.T @ R1
-
-    Parameters
-    ----------
-    rotation_matrix_0, rotation_matrix_1 : np.ndarray
-        3x3 rotation matrices.
-
-    degrees : bool
-        If True, return the result in degrees. Otherwise return radians.
-
-    Returns
-    -------
-    error : float
-        Geodesic rotation error.
+    The inputs may be shape (3, 3) or batched shape (N, 3, 3).
     """
 
     rotation_matrix_0 = np.asarray(rotation_matrix_0, dtype=np.float64)
     rotation_matrix_1 = np.asarray(rotation_matrix_1, dtype=np.float64)
 
-    if rotation_matrix_0.shape != (3, 3):
-        raise ValueError('rotation_matrix_0 must have shape (3, 3).')
+    if rotation_matrix_0.shape != rotation_matrix_1.shape:
+        raise ValueError('rotation_matrix_0 and rotation_matrix_1 must have the same shape.')
 
-    if rotation_matrix_1.shape != (3, 3):
-        raise ValueError('rotation_matrix_1 must have shape (3, 3).')
+    if rotation_matrix_0.shape == (3, 3):
+        relative_rotation = rotation_matrix_0.T @ rotation_matrix_1
+        cos_angle = (np.trace(relative_rotation) - 1.0) / 2.0
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+        angle = np.arccos(cos_angle)
+        if degrees:
+            angle = np.rad2deg(angle)
+        return float(angle)
 
-    relative_rotation = rotation_matrix_0.T @ rotation_matrix_1
+    if rotation_matrix_0.ndim == 3 and rotation_matrix_0.shape[1:] == (3, 3):
+        relative_rotation = np.matmul(
+            np.swapaxes(rotation_matrix_0, -1, -2),
+            rotation_matrix_1,
+        )
+        cos_angle = (np.trace(relative_rotation, axis1=-2, axis2=-1) - 1.0) / 2.0
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+        angle = np.arccos(cos_angle)
+        if degrees:
+            angle = np.rad2deg(angle)
+        return angle
 
-    cos_angle = (np.trace(relative_rotation) - 1.0) / 2.0
-    cos_angle = np.clip(cos_angle, -1.0, 1.0)
-
-    angle = np.arccos(cos_angle)
-
-    if degrees:
-        angle = np.rad2deg(angle)
-
-    return float(angle)
+    raise ValueError('rotation matrices must have shape (3, 3) or (N, 3, 3).')
 
 
 def euler_geodesic_error(
@@ -95,50 +91,26 @@ def euler_geodesic_error(
     """
     Compute the symmetry-aware geodesic error between two Euler-angle orientations.
 
-    Parameters
-    ----------
-    angles_0, angles_1 : array-like
-        Euler-angle orientations in degrees, ordered as:
-
-            [phi, theta, psi]
-
-    symmetry : str
-        Point-group symmetry string. Supported values are:
-
-            Cn, Dn, T, O, I
-
-        Examples:
-
-            'C1', 'C2', 'C7', 'D2', 'D7', 'T', 'O', 'I'
-
-    degrees : bool
-        If True, return the result in degrees. Otherwise return radians.
-
-    symmetry_side : str
-        Which side to apply symmetry operators on.
-
-        Use 'right' when symmetry acts in the body/model frame:
-
-            R_equiv = R1 @ S
-
-        Use 'left' when symmetry acts in the world/image frame:
-
-            R_equiv = S @ R1
-
-        The usual point-group convention is 'right'.
-
-    sym_ops : np.ndarray or None
-        Optional custom symmetry operators with shape (N, 3, 3).
-        If provided, this overrides `symmetry`.
-
-    Returns
-    -------
-    min_error : float
-        Minimum geodesic error over all symmetry-equivalent orientations.
+    angles_0 and angles_1 may each be shape (3,) or (N, 3), with pairwise
+    comparison for batched input.
     """
 
-    rotation_matrix_0 = euler_to_rotation_matrix(angles_0)
-    rotation_matrix_1 = euler_to_rotation_matrix(angles_1)
+    angles_0 = np.asarray(angles_0, dtype=np.float64)
+    angles_1 = np.asarray(angles_1, dtype=np.float64)
+
+    scalar_input = (angles_0.shape == (3,) and angles_1.shape == (3,))
+
+    if scalar_input:
+        rotation_matrix_0 = euler_to_rotation_matrix(angles_0)
+        rotation_matrix_1 = euler_to_rotation_matrix(angles_1)
+    else:
+        if angles_0.shape != angles_1.shape:
+            raise ValueError('angles_0 and angles_1 must have the same shape.')
+        if angles_0.ndim != 2 or angles_0.shape[1] != 3:
+            raise ValueError('For batched input, angles_0 and angles_1 must have shape (N, 3).')
+
+        rotation_matrix_0 = euler_to_rotation_matrix(angles_0)
+        rotation_matrix_1 = euler_to_rotation_matrix(angles_1)
 
     if sym_ops is None:
         sym_ops = point_group_symmetry_matrices(symmetry)
@@ -151,23 +123,49 @@ def euler_geodesic_error(
     if symmetry_side not in ('right', 'left'):
         raise ValueError("symmetry_side must be either 'right' or 'left'.")
 
-    errors = []
+    if scalar_input:
+        errors = []
+        for sym_op in sym_ops:
+            if symmetry_side == 'right':
+                equivalent_rotation_matrix_1 = rotation_matrix_1 @ sym_op
+            else:
+                equivalent_rotation_matrix_1 = sym_op @ rotation_matrix_1
 
-    for sym_op in sym_ops:
-        if symmetry_side == 'right':
-            equivalent_rotation_matrix_1 = rotation_matrix_1 @ sym_op
-        else:
-            equivalent_rotation_matrix_1 = sym_op @ rotation_matrix_1
+            errors.append(
+                rotation_geodesic_error(
+                    rotation_matrix_0,
+                    equivalent_rotation_matrix_1,
+                    degrees=degrees,
+                )
+            )
 
-        error = rotation_geodesic_error(
-            rotation_matrix_0,
-            equivalent_rotation_matrix_1,
-            degrees=degrees,
+        return float(np.min(errors))
+
+    # batched path: shape (N, M, 3, 3)
+    if symmetry_side == 'right':
+        equivalent_rotation_matrix_1 = np.matmul(
+            rotation_matrix_1[:, None, :, :],
+            sym_ops[None, :, :, :],
+        )
+    else:
+        equivalent_rotation_matrix_1 = np.matmul(
+            sym_ops[None, :, :, :],
+            rotation_matrix_1[:, None, :, :],
         )
 
-        errors.append(error)
+    relative_rotation = np.matmul(
+        np.swapaxes(rotation_matrix_0[:, None, :, :], -1, -2),
+        equivalent_rotation_matrix_1,
+    )
 
-    return float(np.min(errors))
+    cos_angle = (np.trace(relative_rotation, axis1=-2, axis2=-1) - 1.0) / 2.0
+    cos_angle = np.clip(cos_angle, -1.0, 1.0)
+
+    errors = np.arccos(cos_angle)
+    if degrees:
+        errors = np.rad2deg(errors)
+
+    return np.min(errors, axis=1)
 
 
 def point_group_symmetry_matrices(symmetry):

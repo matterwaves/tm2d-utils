@@ -114,10 +114,9 @@ def apply_fourier_filt2d(im: np.ndarray, filt2d: np.ndarray):
 
 def build_whitening_filter(
     psd2d: np.ndarray,
-    srow: np.ndarray,
-    scol: np.ndarray,
-    nfreq: int = 1024,
-    eps: float = 1e-10,
+    image_pixel_size: float | None = None,
+    nfreq: int = 1024, # # freq bins in 1d averaging mode
+    eps: float = 1e-10, # helps numerics
     r0_frac: float = 0.0,
     r1_frac: float = 2e-2,
     mode: str = '1d',
@@ -132,6 +131,10 @@ def build_whitening_filter(
         - False: 1/sqrt(psd)
         - True: 1/psd
     """
+    if image_pixel_size is None:
+        print('Warning: image_pixel_size is None, defaulting to 1.0 (index units).')
+        image_pixel_size = 1.0
+    srow, scol = freq_axes(psd2d.shape, image_pixel_size)
     srad = radius_grid(srow, scol)
     s_nyq = min(np.max(np.abs(srow)), np.max(np.abs(scol)))
     if mode == '2d':
@@ -184,19 +187,20 @@ def whiten_image(
     mode: str = '1d',
     double_whiten: bool = False,
     return_filter: bool = False,
+    return_filter_only: bool = False,
 ):
     """
     Whiten an image in fourier space using either a 1d (azimuthally-averaged) or 2d psd.
     - pixel_size=None gives index units (no physical scaling needed for averaging).
     """
     psd2d = get_psd2d(im)
-    srow, scol = freq_axes(im.shape, pixel_size)
-
     filt2d = build_whitening_filter(
-        psd2d, srow, scol, nfreq=nfreq, eps=eps,
+        psd2d, image_pixel_size=pixel_size, nfreq=nfreq, eps=eps,
         r0_frac=r0_frac, r1_frac=r1_frac,
         mode=mode, double_whiten=double_whiten
     )
+    if return_filter_only:
+        return filt2d
     im_filt = apply_fourier_filt2d(im, filt2d)
     return (im_filt, filt2d) if return_filter else im_filt
 
