@@ -18,7 +18,7 @@ from .rotation_matricies import get_cisTEM_rotation_matrix
 
 from .fftshift_util import fftshift
 
-from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, low_pass_filter_image
+from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, get_hpf, low_pass_filter_image, get_lpf, apply_fourier_filt2d
 
 from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_indicies_of_best_match
 
@@ -63,7 +63,10 @@ __all__ = (
     "whiten_image",
     "whiten_buffer",
     "high_pass_filter_image",
+    "get_hpf",
     "low_pass_filter_image",
+    "get_lpf",
+    "apply_fourier_filt2d",
     "get_pixel_z_scores",
     "get_locations_and_indicies_of_best_match",
     "ParticleStack",
