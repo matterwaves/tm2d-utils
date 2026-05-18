@@ -86,7 +86,7 @@ def run_tm2d_density_pixels(
 
     template=tm2d.TemplateDensity(
         density_array=density.density_array,
-        density_pixel_size=density.pixel_size
+        density_pixel_size=density.density_pixel_size
     )
 
     plan = tm2d.Plan(
@@ -120,7 +120,7 @@ def run_tm2d_density_params(
 
     template=tm2d.TemplateDensity(
         density_array=density.density_array,
-        density_pixel_size=density.pixel_size
+        density_pixel_size=density.density_pixel_size
     )
 
     plan = tm2d.Plan(
