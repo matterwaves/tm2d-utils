@@ -8,6 +8,7 @@ __all__ = [
     'rotation_geodesic_error',
     'euler_geodesic_error',
     'point_group_symmetry_matrices',
+    'filter_library_by_geodesic_distance',
 ]
 
 
@@ -166,6 +167,76 @@ def euler_geodesic_error(
         errors = np.rad2deg(errors)
 
     return np.min(errors, axis=1)
+
+
+def filter_library_by_geodesic_distance(
+    library,
+    pose,
+    max_distance,
+    symmetry='C1',
+    symmetry_side='right',
+    sym_ops=None,
+    degrees=True,
+):
+    """
+    Return the subset of a pose library within a geodesic distance of a given pose.
+
+    Parameters
+    ----------
+    library : array-like, shape (N, 3)
+        Pose library of Euler angles [phi, theta, psi] in degrees.
+    pose : array-like, shape (3,)
+        Reference pose as Euler angles [phi, theta, psi] in degrees.
+    max_distance : float
+        Maximum symmetry-aware geodesic distance from `pose`. In degrees
+        unless `degrees=False`, in which case radians.
+    symmetry : str, optional
+        Point-group symmetry string (e.g. 'C1', 'C4', 'D2', 'O'). Default 'C1'.
+    symmetry_side : str, optional
+        Which side to apply symmetry operators — 'right' or 'left'. Default 'right'.
+    sym_ops : array-like, shape (M, 3, 3), optional
+        Pre-computed symmetry matrices. If provided, `symmetry` is ignored.
+    degrees : bool, optional
+        If True (default), `max_distance` and distances are in degrees.
+
+    Returns
+    -------
+    subset : np.ndarray, shape (K, 3)
+        Rows of `library` whose symmetry-aware geodesic distance to `pose`
+        is less than or equal to `max_distance`.
+    mask : np.ndarray of bool, shape (N,)
+        Boolean mask into `library` selecting the returned rows.
+    """
+
+    library = np.asarray(library, dtype=np.float64)
+    pose = np.asarray(pose, dtype=np.float64)
+
+    if library.ndim != 2 or library.shape[1] != 3:
+        raise ValueError('library must have shape (N, 3).')
+    if pose.shape != (3,):
+        raise ValueError('pose must have shape (3,).')
+
+    if sym_ops is None:
+        sym_ops = point_group_symmetry_matrices(symmetry)
+    else:
+        sym_ops = np.asarray(sym_ops, dtype=np.float64)
+
+    # Broadcast: compare every library pose against the single reference pose.
+    # euler_geodesic_error batched path requires equal-length arrays, so we
+    # tile the reference pose to match the library length.
+    pose_tiled = np.tile(pose, (library.shape[0], 1))
+
+    distances = euler_geodesic_error(
+        library,
+        pose_tiled,
+        symmetry=symmetry,
+        degrees=degrees,
+        symmetry_side=symmetry_side,
+        sym_ops=sym_ops,
+    )
+
+    mask = distances <= max_distance
+    return library[mask], mask
 
 
 def point_group_symmetry_matrices(symmetry):

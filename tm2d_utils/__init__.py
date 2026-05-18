@@ -20,7 +20,7 @@ from .fftshift_util import fftshift
 
 from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, get_hpf, low_pass_filter_image, get_lpf, apply_fourier_filt2d
 
-from .pixel_results_postprocess import get_pixel_z_scores, get_locations_and_indicies_of_best_match
+from .pixel_results_postprocess import get_pixel_z_scores, get_pixel_z_scores_deconstructed, get_locations_and_indicies_of_best_match
 
 from .particle_stack import ParticleStack
 
@@ -68,6 +68,7 @@ __all__ = (
     "get_lpf",
     "apply_fourier_filt2d",
     "get_pixel_z_scores",
+    "get_pixel_z_scores_deconstructed",
     "get_locations_and_indicies_of_best_match",
     "ParticleStack",
     "ctf_like_theia",

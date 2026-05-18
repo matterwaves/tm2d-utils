@@ -85,7 +85,7 @@ def run_tm2d_density_pixels(
     results = tm2d.ResultsPixel(micrographs.shape)
 
     template=tm2d.TemplateDensity(
-        density_array=density.density,
+        density_array=density.density_array,
         density_pixel_size=density.pixel_size
     )
 
@@ -119,7 +119,7 @@ def run_tm2d_density_params(
     results = tm2d.ResultsParam(micrographs.shape[0], param_set.get_total_count())
 
     template=tm2d.TemplateDensity(
-        density_array=density.density,
+        density_array=density.density_array,
         density_pixel_size=density.pixel_size
     )
 

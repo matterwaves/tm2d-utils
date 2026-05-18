@@ -2,15 +2,25 @@ import numpy as np
 import tm2d
 
 def get_pixel_z_scores(results: tm2d.ResultsPixel):
+    mip = results.get_mip()
+    count = results.get_templates_count()
     sum_cross = results.get_sum_cross()
     sum2_cross = results.get_sum2_cross()
-    count = results.get_templates_count()
-    mip = results.get_mip()
 
+    z_score, _, _ = get_pixel_z_scores_deconstructed(mip, count, sum_cross, sum2_cross)
+
+    return z_score
+
+def get_pixel_z_scores_deconstructed(
+    mip: np.ndarray,
+    count: int,
+    sum_cross: np.ndarray,
+    sum2_cross: np.ndarray,
+):
     cross_mean = sum_cross / count # per-pixel mean of cross-correlation
     cross_variance = sum2_cross / count - cross_mean * cross_mean # per-pixel variance of cross-correlation
-
-    return (mip - cross_mean) / np.sqrt(cross_variance)
+    z_score = (mip - cross_mean) / np.sqrt(cross_variance)
+    return z_score, cross_mean, cross_variance
 
 def get_locations_and_indicies_of_best_match(results: tm2d.ResultsPixel, optimize_by: str = "mip"):
     location_of_best_match = []
