@@ -1,4 +1,4 @@
-from .file_loading import load_coords_from_npz
+from .file_loading import load_coords_from_npz, load_coords_from_pdb
 from .file_loading import load_density_from_mrc
 
 from .signal_normalization import normalize_signal, calc_sums
@@ -46,6 +46,7 @@ from .tm2d_runners import run_tm2d_atomic_params, run_tm2d_atomic_pixels, run_tm
 
 __all__ = (
     "load_coords_from_npz",
+    "load_coords_from_pdb",
     "load_density_from_mrc",
     "normalize_signal",
     "calc_sums",

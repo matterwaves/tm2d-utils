@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tm2d-utils"
-version = "0.1.2"
+version = "0.1.3"
 authors = [
   { name="Shahar Sandhaus", email="shahar.sandhaus@berkeley.edu" },
 ]
@@ -21,7 +21,13 @@ dependencies = [
     "setuptools>=59.0",
     "numpy",
     "tm2d==0.2.1",
-    "healpy"
+    "healpy",
+    "tqdm",
+    "pandas",
+    "matplotlib",
+    "cmcrameri",
+    "mrcfile",
+    "Bio"
 ]
 
 [project.urls]
