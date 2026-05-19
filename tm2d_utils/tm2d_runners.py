@@ -9,13 +9,14 @@ def run_tm2d_atomic_pixels(
                         template_box_size: tuple[int, int],
                         atomic_coords: np.ndarray,
                         template_batch_size: int = 4,
+                        output_radius: int = None,
                         enable_progress_bar: bool = False):
 
     assert micrographs.ndim == 3, "Micrographs must be a 3D array (num_micrographs, height, width)."
     assert len(template_box_size) == 2, "Template box size must be a tuple of two integers (height, width)."
     assert atomic_coords.ndim == 2 and atomic_coords.shape[1] == 3, "Atomic coordinates must be a 2D array with shape (N, 3)."
 
-    results = tm2d.ResultsPixel(micrographs.shape)
+    results = tm2d.ResultsPixel(micrographs.shape, output_radius=output_radius)
 
     plan = tm2d.Plan(
         template=tm2d.TemplateAtomic(
@@ -29,6 +30,7 @@ def run_tm2d_atomic_pixels(
         results=results,
         ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
+        output_radius=output_radius,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
 
@@ -44,13 +46,14 @@ def run_tm2d_atomic_params(
                         template_box_size: tuple[int, int],
                         atomic_coords: np.ndarray,
                         template_batch_size: int = 4,
+                        output_radius: int = None,
                         enable_progress_bar: bool = False):
 
     assert micrographs.ndim == 3, "Micrographs must be a 3D array (num_micrographs, height, width)."
     assert len(template_box_size) == 2, "Template box size must be a tuple of two integers (height, width)."
     assert atomic_coords.ndim == 2 and atomic_coords.shape[1] == 3, "Atomic coordinates must be a 2D array with shape (N, 3)."
 
-    results = tm2d.ResultsParam(micrographs.shape[0], param_set.get_total_count())
+    results = tm2d.ResultsParam(micrographs.shape[0], param_set.get_total_count(), output_radius=output_radius)
 
     plan = tm2d.Plan(
         template=tm2d.TemplateAtomic(
@@ -64,6 +67,7 @@ def run_tm2d_atomic_params(
         results=results,
         ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
+        output_radius=output_radius,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
 
@@ -78,11 +82,12 @@ def run_tm2d_density_pixels(
                         param_set: tm2d.ParamSet,
                         density: DensityData,
                         template_batch_size: int = 4,
+                        output_radius: int = None,
                         enable_progress_bar: bool = False):
 
     assert micrographs.ndim == 3, "Micrographs must be a 3D array (num_micrographs, height, width)."
 
-    results = tm2d.ResultsPixel(micrographs.shape)
+    results = tm2d.ResultsPixel(micrographs.shape, output_radius=output_radius)
 
     template=tm2d.TemplateDensity(
         density_array=density.density_array,
@@ -98,6 +103,7 @@ def run_tm2d_density_pixels(
         results=results,
         ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
+        output_radius=output_radius,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
 
@@ -112,11 +118,12 @@ def run_tm2d_density_params(
                         param_set: tm2d.ParamSet,
                         density: DensityData,
                         template_batch_size: int = 4,
+                        output_radius: int = None,
                         enable_progress_bar: bool = False):
 
     assert micrographs.ndim == 3, "Micrographs must be a 3D array (num_micrographs, height, width)."
 
-    results = tm2d.ResultsParam(micrographs.shape[0], param_set.get_total_count())
+    results = tm2d.ResultsParam(micrographs.shape[0], param_set.get_total_count(), output_radius=output_radius)
 
     template=tm2d.TemplateDensity(
         density_array=density.density_array,
@@ -132,6 +139,7 @@ def run_tm2d_density_params(
         results=results,
         ctf_params=param_set.ctf_set.ctf_params,
         template_batch_size=template_batch_size,
+        output_radius=output_radius,
         enable_rotation_weights=param_set.rotations_weights is not None
     )
 
