@@ -182,8 +182,8 @@ def whiten_image(
     pixel_size: float | None = None,
     nfreq: int = 1024,
     eps: float = 1e-10,
-    r0_frac: float = 0.0,
-    r1_frac: float = 0.02,
+    cuton_start: float = 0.0, # [1/A]
+    cuton_end: float = 0.02, # [1/A]
     mode: str = '1d',
     double_whiten: bool = False,
     return_filter: bool = False,
@@ -194,9 +194,10 @@ def whiten_image(
     - pixel_size=None gives index units (no physical scaling needed for averaging).
     """
     psd2d = get_psd2d(im)
+    s_nyq = 0.5 / pixel_size if pixel_size is not None else 0.5
     filt2d = build_whitening_filter(
         psd2d, image_pixel_size=pixel_size, nfreq=nfreq, eps=eps,
-        r0_frac=r0_frac, r1_frac=r1_frac,
+        r0_frac=cuton_start / s_nyq, r1_frac=cuton_end / s_nyq, # convert to fraction of nyquist
         mode=mode, double_whiten=double_whiten
     )
     if return_filter_only:
