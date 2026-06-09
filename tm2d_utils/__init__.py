@@ -8,6 +8,7 @@ from .optics_functions import get_beta
 from .optics_functions import get_sigmaE
 from .optics_functions import get_eWlenFromHT
 from .optics_functions import get_ghost_spacing
+from .optics_functions import get_protein_radius
 
 from .image_processing import normalize_image
 from .image_processing import downsample_image
@@ -55,6 +56,7 @@ __all__ = (
     "get_sigmaE",
     "get_eWlenFromHT",
     "get_ghost_spacing",
+    "get_protein_radius",
     "normalize_image",
     "downsample_image",
     "process_raw_micrograph",

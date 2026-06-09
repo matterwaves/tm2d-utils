@@ -205,10 +205,11 @@ def whiten_image(
     im_filt = apply_fourier_filt2d(im, filt2d)
     return (im_filt, filt2d) if return_filter else im_filt
 
-def read_pixel(buff: Buff[c64],
-               x_ind: vc.ShaderVariable,
-               y_ind: vc.ShaderVariable,
-               batch_index: vc.ShaderVariable):
+def read_pixel(
+        buff: Buff[c64],
+        x_ind: vc.ShaderVariable,
+        y_ind: vc.ShaderVariable,
+        batch_index: vc.ShaderVariable):
     result = vc.new_vec2_register(0.0)
 
     vc.if_all(x_ind >= 0, y_ind >= 0, x_ind < buff.shape[2], y_ind < buff.shape[1])
