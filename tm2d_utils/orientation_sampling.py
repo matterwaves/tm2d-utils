@@ -265,3 +265,15 @@ def resolution_from_IP_count(N_ip, D):
 
 def get_random_pose(poses_list):
     return poses_list[np.random.randint(0, poses_list.shape[0]), :] # [deg]
+
+def convert_rln_C1A1_to_tm2d(defocus_u, defocus_v, defocus_ang):
+    defocus_tm2d = (defocus_u + defocus_v) / 2 # [A] defocus is a single value in tm2d
+    A_mag_tm2d = (defocus_u - defocus_v) / 2 # [A] astigmatism magnitude is half the difference between the two defoci
+    A_ang_tm2d = defocus_ang + 90
+    return defocus_tm2d, A_mag_tm2d, A_ang_tm2d
+
+def convert_tm2d_C1A1_to_rln(defocus_tm2d, A_mag_tm2d, A_ang_tm2d):
+    defocus_u = defocus_tm2d + A_mag_tm2d
+    defocus_v = defocus_tm2d - A_mag_tm2d
+    defocus_ang = A_ang_tm2d - 90
+    return defocus_u, defocus_v, defocus_ang

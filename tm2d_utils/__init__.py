@@ -33,6 +33,7 @@ from .orientation_sampling import OrientationRegion
 from .orientation_sampling import get_orientations_cube, get_orientations_healpix, get_orientations_mercator
 from .orientation_sampling import crowther_ang_step_from_resolution
 from .orientation_sampling import get_random_pose
+from .orientation_sampling import convert_rln_C1A1_to_tm2d, convert_tm2d_C1A1_to_rln
 
 from .orientation_metrics import euler_geodesic_error
 from .orientation_metrics import rotation_geodesic_error
@@ -88,6 +89,8 @@ __all__ = (
     "run_tm2d_density_pixels",
     "crowther_ang_step_from_resolution",
     "get_random_pose",
+    "convert_rln_C1A1_to_tm2d",
+    "convert_tm2d_C1A1_to_rln",
     "euler_geodesic_error",
     "rotation_geodesic_error",
     "point_group_symmetry_matrices",
