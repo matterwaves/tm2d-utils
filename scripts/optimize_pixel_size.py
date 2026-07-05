@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,8 +13,11 @@ import numpy as np
 import tm2d
 import tm2d_utils as tu
 
-import spa
-import file_handling as fh
+try:
+    from tm2d_utils import local_parameters as local_params
+except ImportError:
+    from tm2d_utils import local_parameters_template as local_params
+
 from tm2d_utils import particle_stack as ps
 
 import vkdispatch as vd
@@ -26,8 +28,8 @@ particle_limit = 1000
 
 pixel_size_guess_0 = 0.725  # [A]
 B_factor_guess_0 = 50  # [A^2]
-default_workspace_root = "/data/26_01_07-Apo"
-default_workspace_root_is_remote = True
+default_workspace_root = local_params.DEFAULT_WORKSPACE_ROOT
+default_workspace_root_is_remote = local_params.DEFAULT_WORKSPACE_ROOT_IS_REMOTE
 default_session_name = None
 default_session_laser_state = None
 default_session_job_type = "Refine3D"
@@ -36,17 +38,9 @@ density_padding_factor = 2
 symmetry = "O"
 diameter_A = 130  # [A]
 template_batch_size = 1
-DEFAULT_DENSITY_HELPER_FPATHS = (
-    "/home/ppetrov/GitHub/tm2d-utils/volume/simulate_tt_mrc.py",
-    "/home/ppetrov/GitHub/theia_processing/volume/simulate_tt_mrc.py",
-)
+DEFAULT_PDB_FPATH = local_params.DEFAULT_PDB_FPATH
+DEFAULT_DENSITY_HELPER_FPATHS = tuple(local_params.DEFAULT_DENSITY_HELPER_FPATHS)
 
-
-@dataclass
-class SessionConfig:
-    session: spa.RelionSession
-    job_type: str
-    color: str
 
 
 def parse_bool(value):
@@ -66,7 +60,7 @@ def sanitize_label(value):
 
 
 def make_default_output_dir(prefix, args):
-    root_label = sanitize_label(Path(args.workspace_root).name or "workspace")
+    root_label = sanitize_label(Path(args.workspace_root).name if args.workspace_root is not None else "workspace")
     name_label = sanitize_label(args.session_name) if args.session_name is not None else "session"
     return (
         f"{prefix}_{args.model_type}_{root_label}_{name_label}_"
@@ -75,17 +69,14 @@ def make_default_output_dir(prefix, args):
 
 
 def get_session_config(args):
-    session_kwargs = {
-        "workspace": fh.RelionWorkspace(root_dir=args.workspace_root, root_is_remote=args.workspace_root_is_remote),
-        args.session_job_type: args.session_job_num,
-    }
-    if args.session_name not in {None, ""}:
-        session_kwargs["name"] = args.session_name
-    if args.session_laser_state is not None:
-        session_kwargs["laser"] = args.session_laser_state
-
-    session = spa.RelionSession(**session_kwargs)
-    return SessionConfig(session=session, job_type=args.session_job_type, color="tab:blue")
+    return tu.make_session_config(
+        workspace_root=args.workspace_root,
+        workspace_root_is_remote=args.workspace_root_is_remote,
+        session_name=args.session_name,
+        session_laser_state=args.session_laser_state,
+        session_job_type=args.session_job_type,
+        session_job_num=args.session_job_num,
+    )
 
 
 def parse_float_list(spec):
@@ -223,10 +214,13 @@ def run_tm2d_pixels(
     return results
 
 
-def load_protein_coords():
-    fname = "6z6u_apoferritin.pdb"
-    pdb_dpath = "/home/ppetrov/GitHub/TEM_LPP_Image_Simulator/PDBs"
-    pdb_fpath = os.path.join(pdb_dpath, fname)
+def load_protein_coords(pdb_fpath=None):
+    if pdb_fpath is None:
+        raise ValueError(
+            "No PDB path configured. Pass --pdb-fpath or set DEFAULT_PDB_FPATH "
+            "in tm2d_utils/local_parameters.py."
+        )
+    pdb_fpath = str(Path(pdb_fpath).expanduser())
     protein_coords = tu.load_coords_from_pdb(pdb_fpath)
     print(len(protein_coords), "atoms loaded from", pdb_fpath)
     return pdb_fpath, protein_coords
@@ -244,8 +238,11 @@ def resolve_density_helper_fpath(helper_fpath):
         if helper_path.exists():
             return helper_path
 
-    searched = ", ".join(DEFAULT_DENSITY_HELPER_FPATHS)
-    raise FileNotFoundError(f"Could not find density helper. Searched: {searched}")
+    searched = ", ".join(DEFAULT_DENSITY_HELPER_FPATHS) or "no default helper paths configured"
+    raise FileNotFoundError(
+        "Could not find density helper. Pass --density-helper-fpath or set "
+        f"DEFAULT_DENSITY_HELPER_FPATHS in tm2d_utils/local_parameters.py. Searched: {searched}"
+    )
 
 
 def make_density_mrc(
@@ -765,9 +762,10 @@ def parse_args():
     parser.add_argument("--ctf-phase-shift", type=float, default=None, help="Override STAR phase shift with a constant value in degrees.")
     parser.add_argument("--search-res", type=float, default=3.0)
     parser.add_argument("--B-factor", type=float, default=B_factor_guess_0)
+    parser.add_argument("--pdb-fpath", default=DEFAULT_PDB_FPATH, help="Path to the PDB used for atomic templates.")
     parser.add_argument("--devices", default="0,1,2,3", help="Comma-separated vkdispatch device IDs for tm2d matching.")
     parser.add_argument("--output-dir", default=None)
-    parser.add_argument("--density-helper-fpath", default=None, help="Path to simulate_tt_mrc.py; defaults to tm2d-utils/volume if present, then theia_processing/volume.")
+    parser.add_argument("--density-helper-fpath", default=None, help="Path to simulate_tt_mrc.py; defaults can be set in tm2d_utils/local_parameters.py.")
     parser.add_argument("--density-helper-python", default=None, help="Python used to launch the density helper; defaults to the current tm2d Python.")
     parser.add_argument("--density-device", default="cpu", help="Device passed to the density-template generator only.")
     parser.add_argument("--overwrite-density", action="store_true")
@@ -800,7 +798,7 @@ def main():
     print(f"selected {sum(len(inds) for _, inds in selected_mics)} particles from {len(selected_mics)} micrographs")
 
     image_shape = tuple(stack.im_orig[0].shape)
-    pdb_fpath, protein_coords = load_protein_coords()
+    pdb_fpath, protein_coords = load_protein_coords(args.pdb_fpath)
     pose_lib, diameter, ang_step = make_pose_library(
         protein_coords=protein_coords,
         search_res=args.search_res,
@@ -835,6 +833,7 @@ def main():
         "top_n": args.top_n,
         "score_stat": args.score_stat,
         "B_factor": args.B_factor,
+        "pdb_fpath": args.pdb_fpath,
         "search_res": args.search_res,
         "pose_library_size": int(len(pose_lib)),
         "devices": device_ids,

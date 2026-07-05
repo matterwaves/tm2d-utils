@@ -25,6 +25,7 @@ from .pixel_results_postprocess import get_pixel_z_scores, get_pixel_z_scores_de
 
 from .particle_stack import ParticleStack
 from .particle_stack import get_dfs_from_session, read_stack_from_dfs, read_stack_from_session
+from .relion import RelionSession, RelionWorkspace, SessionConfig, make_session_config, read_mrc, read_starfile
 
 from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
@@ -79,6 +80,12 @@ __all__ = (
     "get_dfs_from_session",
     "read_stack_from_dfs",
     "read_stack_from_session",
+    "read_starfile",
+    "read_mrc",
+    "make_session_config",
+    "SessionConfig",
+    "RelionWorkspace",
+    "RelionSession",
     "ctf_like_theia",
     "ctf_like_krios",
     "ctf_like_titan",

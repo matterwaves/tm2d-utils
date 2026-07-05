@@ -27,6 +27,7 @@ dependencies = [
     "matplotlib",
     "cmcrameri",
     "mrcfile",
+    "starfile",
     "Bio"
 ]
 

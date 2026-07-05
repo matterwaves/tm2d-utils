@@ -10,3 +10,6 @@ data/
 */.DS_Store
 
 tm2d_utils.egg-info/
+
+tm2d_utils/local_parameters.py
+

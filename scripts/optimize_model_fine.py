@@ -356,6 +356,7 @@ def parse_args():
     parser.add_argument("--B-factor-half-width", type=float, default=50.0)
     parser.add_argument("--B-factor-step", type=float, default=10.0)
     parser.add_argument("--B-factor-values", default="", help="Comma-separated B factors; overrides estimate/half-width/step.")
+    parser.add_argument("--pdb-fpath", default=None, help="Path to the PDB used for atomic templates.")
     parser.add_argument("--model-type", default=None, choices=["atomic", "density"])
     parser.add_argument("--workspace-root", default=None)
     parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=ops.parse_bool, default=None)
@@ -411,6 +412,7 @@ def main():
     args.ctf_astigmatism_angle = resolve_arg(args.ctf_astigmatism_angle, metadata, "ctf_astigmatism_angle", None)
     args.ctf_phase_shift = resolve_arg(args.ctf_phase_shift, metadata, "ctf_phase_shift", None)
     args.devices = resolve_arg(args.devices, metadata, "devices", "0,1,2,3")
+    args.pdb_fpath = resolve_arg(args.pdb_fpath, metadata, "pdb_fpath", ops.DEFAULT_PDB_FPATH)
 
     device_ids = parse_device_ids(args.devices)
     vd.make_context(device_ids=device_ids)
@@ -442,7 +444,7 @@ def main():
     print(f"selected {sum(len(inds) for _, inds in selected_mics)} particles from {len(selected_mics)} micrographs")
 
     image_shape = tuple(stack.im_orig[0].shape)
-    pdb_fpath, protein_coords = ops.load_protein_coords()
+    pdb_fpath, protein_coords = ops.load_protein_coords(args.pdb_fpath)
     pose_lib, diameter, ang_step = ops.make_pose_library(
         protein_coords=protein_coords,
         search_res=args.search_res,
@@ -466,6 +468,7 @@ def main():
         "B_factor_half_width": args.B_factor_half_width,
         "B_factor_step": args.B_factor_step,
         "B_factor_values": [float(v) for v in B_factor_values],
+        "pdb_fpath": args.pdb_fpath,
         "model_type": args.model_type,
         "workspace_root": args.workspace_root,
         "workspace_root_is_remote": args.workspace_root_is_remote,

@@ -299,6 +299,7 @@ def parse_args():
     parser.add_argument("--pixel-size", type=float, default=None)
     parser.add_argument("--B-factor", type=float, default=None)
     parser.add_argument("--model-type", default=None, choices=["atomic", "density"])
+    parser.add_argument("--pdb-fpath", default=None, help="Path to the PDB used for atomic templates.")
     parser.add_argument("--workspace-root", default=None)
     parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=ops.parse_bool, default=None)
     parser.add_argument("--session-name", default=None)
@@ -346,6 +347,7 @@ def main():
     args.micrograph_start_index = int(resolve_arg(args.micrograph_start_index, model_metadata, "micrograph_start_index", 0))
     args.search_res = float(resolve_arg(args.search_res, model_metadata, "search_res", 3.0))
     args.devices = resolve_arg(args.devices, model_metadata, "devices", "0,1,2,3")
+    args.pdb_fpath = resolve_arg(args.pdb_fpath, model_metadata, "pdb_fpath", ops.DEFAULT_PDB_FPATH)
     args.defocus_offsets_A = resolve_arg(args.defocus_offsets_A, model_metadata, "defocus_offsets_A", [0.0])
     args.phase_shift_offsets_deg = [0.0] if args.phase_shift_offsets_deg is None else args.phase_shift_offsets_deg
     args.ctf_defocus = resolve_arg(args.ctf_defocus, model_metadata, "ctf_defocus", None)
@@ -392,7 +394,7 @@ def main():
     print(f"selected {sum(len(inds) for _, inds in selected_mics)} particles from {len(selected_mics)} micrographs")
 
     image_shape = tuple(stack.im_orig[0].shape)
-    pdb_fpath, protein_coords = ops.load_protein_coords()
+    pdb_fpath, protein_coords = ops.load_protein_coords(args.pdb_fpath)
     pose_lib, diameter, ang_step = ops.make_pose_library(protein_coords, args.search_res, ops.symmetry, ops.diameter_A)
     print(f"pose library size: {len(pose_lib)} orientations, diameter: {diameter:.2f} A, angular step: {ang_step:.2f} deg")
 
@@ -426,6 +428,7 @@ def main():
             "source_star_fpath": source_star_fpath,
             "output_star": args.output_star,
             "model_type": args.model_type,
+            "pdb_fpath": args.pdb_fpath,
             "pixel_size": float(args.pixel_size),
             "B_factor": float(args.B_factor),
             "search_res": args.search_res,
