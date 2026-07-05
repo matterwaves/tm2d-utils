@@ -22,7 +22,7 @@ def get_pixel_z_scores_deconstructed(
     z_score = (mip - cross_mean) / np.sqrt(cross_variance)
     return z_score, cross_mean, cross_variance
 
-def get_locations_and_indicies_of_best_match(results: tm2d.ResultsPixel, optimize_by: str = "mip"):
+def get_locations_and_indices_of_best_match(results: tm2d.ResultsPixel, optimize_by: str = "mip"):
     location_of_best_match = []
     index_of_params_match = []
 
@@ -45,3 +45,7 @@ def get_locations_and_indicies_of_best_match(results: tm2d.ResultsPixel, optimiz
         index_of_params_match.append(best_index_array[i][location_of_best_match[i]])
 
     return location_of_best_match, index_of_params_match
+
+
+def get_locations_and_indicies_of_best_match(results: tm2d.ResultsPixel, optimize_by: str = "mip"):
+    return get_locations_and_indices_of_best_match(results, optimize_by)

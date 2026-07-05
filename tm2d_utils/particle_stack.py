@@ -240,7 +240,7 @@ class ParticleStack:
             unique_and_inds = list(idxs_by_value.items())  # [(value, [i1, i2, ...]), ...]
         return unique_and_inds
 
-def get_micograph_groups(df_particles):
+def get_micrograph_groups(df_particles):
     micrograph_groups = {k: g for k, g in df_particles.groupby('rlnMicrographName')}
     return micrograph_groups
 
@@ -252,13 +252,15 @@ def get_dfs_from_session(rln_session, job_type="Refine3D"):
     return star_data["optics"], star_data["particles"], star_fpath
 
 
+get_micograph_groups = get_micrograph_groups
+
 def read_stack_from_dfs(df_optics, df_particles, star_fpath, workspace, job_type="Refine3D", n_particles=None):
     pixel_size = df_optics["rlnMicrographOriginalPixelSize"].iloc[0]
     box_len_pix = df_optics["rlnImageSize"].iloc[0]
     Cs_nom_mm = df_optics["rlnSphericalAberration"].iloc[0]
     HT = df_optics["rlnVoltage"].iloc[0] * 1e3
     amp_contrast = df_optics["rlnAmplitudeContrast"].iloc[0]
-    micrograph_groups = get_micograph_groups(df_particles)
+    micrograph_groups = get_micrograph_groups(df_particles)
     n_particles_so_far = 0
     if n_particles is None:
         n_particles = np.inf

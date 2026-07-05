@@ -1,6 +1,6 @@
 import numpy as np
 
-from .rotation_matricies import get_cisTEM_rotation_matrix
+from .rotation_matrices import get_cisTEM_rotation_matrix
 
 
 __all__ = [
