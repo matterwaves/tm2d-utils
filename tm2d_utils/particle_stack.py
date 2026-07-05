@@ -252,7 +252,6 @@ def get_dfs_from_session(rln_session, job_type="Refine3D"):
     return star_data["optics"], star_data["particles"], star_fpath
 
 
-get_micograph_groups = get_micrograph_groups
 
 def read_stack_from_dfs(df_optics, df_particles, star_fpath, workspace, job_type="Refine3D", n_particles=None):
     pixel_size = df_optics["rlnMicrographOriginalPixelSize"].iloc[0]
