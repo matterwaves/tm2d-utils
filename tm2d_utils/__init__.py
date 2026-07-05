@@ -24,6 +24,7 @@ from .whitener import whiten_image, whiten_buffer, high_pass_filter_image, get_h
 from .pixel_results_postprocess import get_pixel_z_scores, get_pixel_z_scores_deconstructed, get_locations_and_indicies_of_best_match
 
 from .particle_stack import ParticleStack
+from .particle_stack import get_dfs_from_session, read_stack_from_dfs, read_stack_from_session
 
 from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
@@ -75,6 +76,9 @@ __all__ = (
     "get_pixel_z_scores_deconstructed",
     "get_locations_and_indicies_of_best_match",
     "ParticleStack",
+    "get_dfs_from_session",
+    "read_stack_from_dfs",
+    "read_stack_from_session",
     "ctf_like_theia",
     "ctf_like_krios",
     "ctf_like_titan",

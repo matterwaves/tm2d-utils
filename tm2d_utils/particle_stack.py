@@ -1,7 +1,61 @@
+import os
+import re
+
 import numpy as np
 import pandas as pd
 
 from . import optics_functions
+
+
+
+def parse_rln_vector(v):
+    if isinstance(v, str):
+        s = v.strip()
+        if s.startswith("[") and s.endswith("]"):
+            s = s[1:-1]
+        if not s:
+            return np.array([], dtype=float)
+        toks = [t for t in re.split(r"[\s,;]+", s.replace(",", " ")) if t]
+        return np.array([float(t) for t in toks], dtype=float)
+    return np.asarray(v, dtype=float).ravel().copy()
+
+
+def extract_particle(mic, rln_coord, box_len):
+    half_box = int(box_len) // 2
+    row_start = int(rln_coord[1] - half_box)
+    row_stop = int(rln_coord[1] + half_box)
+    col_start = int(rln_coord[0] - half_box)
+    col_stop = int(rln_coord[0] + half_box)
+    if row_start < 0 or col_start < 0 or row_stop > mic.shape[0] or col_stop > mic.shape[1]:
+        return None
+    return mic[row_start:row_stop, col_start:col_stop]
+
+
+def convert_rlnBeamTilt_to_rlnOddZernike(beam_tilt_x_mrad, beam_tilt_y_mrad, Cs_mm, HT=300e3, rln_odd_zernike_len=6):
+    wlen = optics_functions.get_eWlenFromHT(HT)
+    scale = float(Cs_mm) * 20000.0 * wlen * wlen * np.pi
+    d = np.zeros(max(int(rln_odd_zernike_len), 5), dtype=float)
+    z3x = -scale * float(beam_tilt_x_mrad) / 3.0
+    z3y = -scale * float(beam_tilt_y_mrad) / 3.0
+    d[1] += 2.0 * z3x
+    d[0] += 2.0 * z3y
+    d[4] += z3x
+    d[3] += z3y
+    return d
+
+
+def get_delta_Cs_from_rlnEvenZernike(rln_even_zernike, HT=300e3):
+    z40 = rln_even_zernike[6] if rln_even_zernike.size > 6 else 0.0
+    wlen = optics_functions.get_eWlenFromHT(HT)
+    return (12.0 * z40) / (np.pi * wlen**3) * 1e-7
+
+
+def get_star_of_type(job_type):
+    return {
+        "Refine3D": "run_data.star",
+        "CtfRefine": "particles_ctf_refine.star",
+        "Polish": "shiny.star",
+    }.get(job_type, "run_data.star")
 
 class ParticleStack:
     def __init__(
@@ -58,8 +112,8 @@ class ParticleStack:
         self.rln_even_zernike = [np.zeros(9)] * len(im_orig) if rln_even_zernike is None else list(rln_even_zernike) # may be overwritten momentarily
         self.Cs_ref_mm = [Cs_nom_mm] * len(im_orig) # may be overwritten momentarily
               
+        self.rln_optics_group_id = [1] * len(im_orig) if rln_optics_group_id is None else list(rln_optics_group_id)
         if rln_optics_df is not None:
-            self.rln_optics_group_id = [1] * len(im_orig) if rln_optics_group_id is None else list(rln_optics_group_id)
             for p_ind in range(len(im_orig)):
                 self.update_from_optics_df(p_ind, group_id=self.rln_optics_group_id[p_ind])
         
@@ -75,6 +129,35 @@ class ParticleStack:
         self.mip_out = [None] * len(im_orig)
         self.snr_out = [None] * len(im_orig)
         self.p_value_out = [None] * len(im_orig)
+
+    def update_from_optics_df(self, particle_ind, group_id=1):
+        optics_data = self.rln_optics_df.iloc[int(group_id) - 1]
+        beam_tilt_x_mrad = optics_data["rlnBeamTiltX"] if "rlnBeamTiltX" in optics_data else 0.0
+        beam_tilt_y_mrad = optics_data["rlnBeamTiltY"] if "rlnBeamTiltY" in optics_data else 0.0
+        odd_zernike = parse_rln_vector(optics_data["rlnOddZernike"]) if "rlnOddZernike" in optics_data else np.zeros(6)
+        differential_odd_zernike = convert_rlnBeamTilt_to_rlnOddZernike(
+            beam_tilt_x_mrad,
+            beam_tilt_y_mrad,
+            self.Cs_nom_mm,
+            self.HT,
+            rln_odd_zernike_len=len(odd_zernike),
+        )
+        odd_zernike += differential_odd_zernike
+
+        m00 = optics_data["rlnMagMatrix_00"] if "rlnMagMatrix_00" in optics_data else 1.0
+        m01 = optics_data["rlnMagMatrix_01"] if "rlnMagMatrix_01" in optics_data else 0.0
+        m10 = optics_data["rlnMagMatrix_10"] if "rlnMagMatrix_10" in optics_data else 0.0
+        m11 = optics_data["rlnMagMatrix_11"] if "rlnMagMatrix_11" in optics_data else 1.0
+        mag_matrix = np.array([[m00, m01], [m10, m11]])
+
+        even_zernike = parse_rln_vector(optics_data["rlnEvenZernike"]) if "rlnEvenZernike" in optics_data else np.zeros(9)
+        delta_Cs_mm = get_delta_Cs_from_rlnEvenZernike(even_zernike, self.HT)
+        Cs_refined_mm = self.Cs_nom_mm + delta_Cs_mm
+
+        self.mag_matrix[particle_ind] = mag_matrix
+        self.rln_odd_zernike[particle_ind] = odd_zernike
+        self.rln_even_zernike[particle_ind] = even_zernike
+        self.Cs_ref_mm[particle_ind] = Cs_refined_mm
 
     def add_particle(
         self,
@@ -121,12 +204,6 @@ class ParticleStack:
         if rln_optics_df is not None:
             group_id = rln_optics_group_id if rln_optics_group_id is not None else 1
             self.update_from_optics_df(len(self.im)-1, group_id=group_id) # update from optics dataframe for the new particle
-        else:
-            # otherwise, just append provided values or defaults
-            self.mag_matrix.append(mag_matrix if mag_matrix is not None else np.eye(2))
-            self.rln_odd_zernike.append(rln_odd_zernike if rln_odd_zernike is not None else np.zeros(6))
-            self.rln_even_zernike.append(rln_even_zernike if rln_even_zernike is not None else np.zeros(9))
-            self.Cs_ref_mm.append(self.Cs_nom_mm)
 
     def get_substack(self, particle_inds):
         substack = ParticleStack(
@@ -166,3 +243,73 @@ class ParticleStack:
 def get_micograph_groups(df_particles):
     micrograph_groups = {k: g for k, g in df_particles.groupby('rlnMicrographName')}
     return micrograph_groups
+
+
+def get_dfs_from_session(rln_session, job_type="Refine3D"):
+    ws = rln_session.workspace
+    star_fpath = os.path.join(ws.get_job_dir(job_type, getattr(rln_session, job_type)), get_star_of_type(job_type))
+    star_data = ws.read_starfile(star_fpath)
+    return star_data["optics"], star_data["particles"], star_fpath
+
+
+def read_stack_from_dfs(df_optics, df_particles, star_fpath, workspace, job_type="Refine3D", n_particles=None):
+    pixel_size = df_optics["rlnMicrographOriginalPixelSize"].iloc[0]
+    box_len_pix = df_optics["rlnImageSize"].iloc[0]
+    Cs_nom_mm = df_optics["rlnSphericalAberration"].iloc[0]
+    HT = df_optics["rlnVoltage"].iloc[0] * 1e3
+    amp_contrast = df_optics["rlnAmplitudeContrast"].iloc[0]
+    micrograph_groups = get_micograph_groups(df_particles)
+    n_particles_so_far = 0
+    if n_particles is None:
+        n_particles = np.inf
+
+    stack = ParticleStack([], pixel_size, Cs_nom_mm, HT, amp_contrast, rln_optics_df=df_optics)
+    try:
+        workspace.open_remote()
+        for mic_fpath_rel, df_mic in micrograph_groups.items():
+            mic_fpath = os.path.join(workspace.root_dir, mic_fpath_rel)
+            mic = workspace.read_mrc_remote(mic_fpath)
+            rln_coords_orig = df_mic[["rlnCoordinateX", "rlnCoordinateY"]].to_numpy()
+            rln_angles = df_mic[["rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi"]].to_numpy()
+            rln_defocus_u = df_mic["rlnDefocusU"].to_numpy()
+            rln_defocus_v = df_mic["rlnDefocusV"].to_numpy()
+            rln_defocus_angle = df_mic["rlnDefocusAngle"].to_numpy()
+            rln_phase_shift = df_mic["rlnPhaseShift"].to_numpy() if "rlnPhaseShift" in df_mic.columns else np.zeros(len(df_mic))
+            if "rlnOriginXAngst" in df_mic.columns and "rlnOriginYAngst" in df_mic.columns:
+                rln_coords_diff_A = df_mic[["rlnOriginXAngst", "rlnOriginYAngst"]].to_numpy()
+            else:
+                rln_coords_diff_A = np.zeros_like(rln_coords_orig)
+            rln_optics_group = df_mic["rlnOpticsGroup"].to_numpy() if "rlnOpticsGroup" in df_mic.columns else np.ones(len(df_mic), dtype=int)
+            rln_coords = rln_coords_orig - rln_coords_diff_A / pixel_size
+
+            for particle_ind in range(len(rln_coords)):
+                part_im = extract_particle(mic, rln_coords[particle_ind], box_len_pix)
+                if part_im is not None:
+                    stack.add_particle(
+                        part_im.astype(np.float64),
+                        mic_fpath=mic_fpath,
+                        inds_in_mic=rln_coords[particle_ind],
+                        phi_in=rln_angles[particle_ind, 0],
+                        theta_in=rln_angles[particle_ind, 1],
+                        psi_in=rln_angles[particle_ind, 2],
+                        defocus_u_in=rln_defocus_u[particle_ind],
+                        defocus_v_in=rln_defocus_v[particle_ind],
+                        defocus_ang_in=rln_defocus_angle[particle_ind],
+                        phase_shift_in=rln_phase_shift[particle_ind],
+                        rln_star_fpath=star_fpath,
+                        rln_optics_df=df_optics,
+                        rln_optics_group_id=int(rln_optics_group[particle_ind]),
+                    )
+                    n_particles_so_far += 1
+                if n_particles_so_far >= n_particles:
+                    break
+            if n_particles_so_far >= n_particles:
+                break
+    finally:
+        workspace.close_remote()
+    return stack
+
+
+def read_stack_from_session(rln_session, job_type="Refine3D", n_particles=None):
+    df_optics, df_particles, star_fpath = get_dfs_from_session(rln_session, job_type=job_type)
+    return read_stack_from_dfs(df_optics, df_particles, star_fpath, rln_session.workspace, job_type=job_type, n_particles=n_particles)
