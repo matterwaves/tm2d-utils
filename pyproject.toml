@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
     "setuptools>=59.0",
     "numpy",
-    "tm2d==0.2.1",
+    "tm2d==0.3.0",
     "healpy",
     "tqdm",
     "pandas",
