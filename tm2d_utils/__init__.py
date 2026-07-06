@@ -26,6 +26,7 @@ from .pixel_results_postprocess import get_pixel_z_scores, get_pixel_z_scores_de
 from .particle_stack import ParticleStack
 from .particle_stack import get_dfs_from_session, read_stack_from_dfs, read_stack_from_session
 from .relion import RelionSession, RelionWorkspace, SessionConfig, make_session_config, read_mrc, read_starfile
+from .micrograph_time import add_micrograph_timestamps, fix_timestamp_in_path, get_micrograph_datetime, micrograph_timestamp_table
 
 from .ctf_presets import ctf_like_theia, ctf_like_krios, ctf_like_titan
 
@@ -40,6 +41,7 @@ from .orientation_sampling import convert_rln_C1A1_to_tm2d, convert_tm2d_C1A1_to
 from .orientation_metrics import euler_geodesic_error
 from .orientation_metrics import rotation_geodesic_error
 from .orientation_metrics import point_group_symmetry_matrices
+from .orientation_metrics import filter_library_by_geodesic_distance
 
 from .simulate import dose_A2_to_pixel, get_image_from_pdf
 
@@ -86,6 +88,10 @@ __all__ = (
     "SessionConfig",
     "RelionWorkspace",
     "RelionSession",
+    "add_micrograph_timestamps",
+    "micrograph_timestamp_table",
+    "get_micrograph_datetime",
+    "fix_timestamp_in_path",
     "ctf_like_theia",
     "ctf_like_krios",
     "ctf_like_titan",
@@ -105,6 +111,7 @@ __all__ = (
     "euler_geodesic_error",
     "rotation_geodesic_error",
     "point_group_symmetry_matrices",
+    "filter_library_by_geodesic_distance",
     "dose_A2_to_pixel",
     "get_image_from_pdf",
     "simulate",
