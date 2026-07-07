@@ -13,13 +13,12 @@ import tm2d
 import tm2d_utils as tu
 import vkdispatch as vd
 
-import optimize_model_fine as omf
-import optimize_pixel_size as ops
-import run_fixed_model_tm2d_search as fixed
+import script_utils as su
+import script_tm2d as st
 from tm2d_utils import particle_stack as ps
 
 
-INITIAL_COLUMNS = fixed.TM_COLUMNS
+INITIAL_COLUMNS = st.TM_COLUMNS
 REFINE_COLUMNS = {
     "angle_rot": "rlnTM2DRefineAngleRot",
     "angle_tilt": "rlnTM2DRefineAngleTilt",
@@ -46,31 +45,12 @@ REFINE_COLUMNS = {
 }
 
 
-def load_json_if_exists(path):
-    path = Path(path)
-    if not path.exists():
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
-
-
-def find_fixed_star(fixed_model_dir):
-    fixed_model_dir = Path(fixed_model_dir)
-    candidate = fixed_model_dir / "fixed_model_tm2d_results.star"
-    if candidate.exists():
-        return candidate
-    matches = sorted(fixed_model_dir.glob("*.star"))
-    if not matches:
-        raise FileNotFoundError(f"No STAR file found in {fixed_model_dir}")
-    return matches[0]
-
-
 def load_fixed_inputs(args):
     fixed_metadata = {}
     if args.fixed_model_dir is not None:
-        fixed_metadata = load_json_if_exists(Path(args.fixed_model_dir) / "fixed_model_tm2d_metadata.json")
+        fixed_metadata = su.load_json_if_exists(Path(args.fixed_model_dir) / "fixed_model_tm2d_metadata.json")
 
-    fixed_star = Path(args.fixed_star) if args.fixed_star is not None else find_fixed_star(args.fixed_model_dir)
+    fixed_star = Path(args.fixed_star) if args.fixed_star is not None else st.find_star_file(args.fixed_model_dir, "fixed_model_tm2d_results.star")
     star_data = starfile.read(fixed_star)
     if not isinstance(star_data, dict):
         raise ValueError("Expected a RELION 5 STAR with optics and particles blocks.")
@@ -88,34 +68,8 @@ def resolve_arg(value, *metadata_default_pairs):
     return None
 
 
-def parse_float_values(spec):
-    if spec is None or str(spec).strip() == "":
-        return None
-    return np.asarray([float(value) for value in str(spec).split(",") if value != ""], dtype=float)
-
-
-def make_centered_range(center, half_width, step):
-    center = float(center)
-    half_width = float(half_width)
-    step = float(step)
-    if half_width <= 0 or step <= 0:
-        return np.asarray([center], dtype=float)
-    n_steps = int(np.floor((2.0 * half_width) / step + 1e-9))
-    values = center - half_width + step * np.arange(n_steps + 1)
-    if not np.any(np.isclose(values, center, atol=1e-9, rtol=0)):
-        values = np.concatenate([values, [center]])
-    values = values[(values >= center - half_width - 1e-9) & (values <= center + half_width + 1e-9)]
-    return np.asarray(sorted(np.unique(np.round(values, 6))), dtype=float)
-
-
-def require_columns(df, columns):
-    missing = [column for column in columns if column not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required STAR columns: {', '.join(missing)}")
-
-
 def select_refinement_rows(df_particles, args):
-    require_columns(
+    st.require_columns(
         df_particles,
         [
             INITIAL_COLUMNS["angle_rot"],
@@ -172,21 +126,21 @@ def build_ctf_grid_for_particle(row, base_ctf_params, args):
     center_astig = float(row[INITIAL_COLUMNS["astigmatism"]]) if INITIAL_COLUMNS["astigmatism"] in row and pd.notna(row[INITIAL_COLUMNS["astigmatism"]]) else 0.0
     center_astig_angle = float(row[INITIAL_COLUMNS["astigmatism_angle"]]) if INITIAL_COLUMNS["astigmatism_angle"] in row and pd.notna(row[INITIAL_COLUMNS["astigmatism_angle"]]) else 0.0
 
-    defocus_values = parse_float_values(args.defocus_values_A)
+    defocus_values = su.parse_float_values(args.defocus_values_A)
     if defocus_values is None:
-        defocus_values = make_centered_range(center_defocus, args.defocus_half_width_A, args.defocus_step_A)
+        defocus_values = st.make_centered_range(center_defocus, args.defocus_half_width_A, args.defocus_step_A)
 
-    phase_values = parse_float_values(args.phase_shift_values_deg)
+    phase_values = su.parse_float_values(args.phase_shift_values_deg)
     if phase_values is None:
-        phase_values = make_centered_range(center_phase, args.phase_shift_half_width_deg, args.phase_shift_step_deg)
+        phase_values = st.make_centered_range(center_phase, args.phase_shift_half_width_deg, args.phase_shift_step_deg)
 
-    astig_values = parse_float_values(args.astigmatism_values_A)
+    astig_values = su.parse_float_values(args.astigmatism_values_A)
     if astig_values is None:
-        astig_values = make_centered_range(center_astig, args.astigmatism_half_width_A, args.astigmatism_step_A)
+        astig_values = st.make_centered_range(center_astig, args.astigmatism_half_width_A, args.astigmatism_step_A)
 
-    astig_angle_values = parse_float_values(args.astigmatism_angle_values_deg)
+    astig_angle_values = su.parse_float_values(args.astigmatism_angle_values_deg)
     if astig_angle_values is None:
-        astig_angle_values = make_centered_range(center_astig_angle, args.astigmatism_angle_half_width_deg, args.astigmatism_angle_step_deg)
+        astig_angle_values = st.make_centered_range(center_astig_angle, args.astigmatism_angle_half_width_deg, args.astigmatism_angle_step_deg)
 
     ctf_params.defocus = None if len(defocus_values) > 1 else float(defocus_values[0])
     ctf_params.lpp = None if len(phase_values) > 1 else float(phase_values[0])
@@ -224,7 +178,7 @@ def run_single_particle_refinement(image, image_shape, pose_lib, template, ctf_p
         pixel_sizes=np.array([float(args.pixel_size)]),
     )
     mics_in = np.asarray([image], dtype=np.float32)
-    results = ops.run_tm2d_pixels(
+    results = st.run_tm2d_pixels(
         micrographs=mics_in,
         param_set=param_set,
         template=template,
@@ -307,18 +261,7 @@ def attach_refinement_to_star(df_particles, rows):
     return df_out
 
 
-def write_csv(path, rows):
-    if not rows:
-        return
-    keys = []
-    for row in rows:
-        for key in row:
-            if key not in keys:
-                keys.append(key)
-    with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(rows)
+write_csv = su.write_csv
 
 
 def parse_args():
@@ -331,9 +274,12 @@ def parse_args():
     parser.add_argument("--model-type", default=None, choices=["atomic", "density"])
     parser.add_argument("--pdb-fpath", default=None)
     parser.add_argument("--workspace-root", default=None)
-    parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=ops.parse_bool, default=None)
+    parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=su.parse_bool, default=None)
+    parser.add_argument("--remote-host", default=None)
+    parser.add_argument("--remote-user", default=None)
+    parser.add_argument("--remote-key-filename", default=None)
     parser.add_argument("--session-name", default=None)
-    parser.add_argument("--session-laser-state", type=ops.parse_bool, default=None)
+    parser.add_argument("--session-laser-state", type=su.parse_bool, default=None)
     parser.add_argument("--session-job-type", default=None)
     parser.add_argument("--session-job-num", type=int, default=None)
     parser.add_argument("--particle-limit", type=int, default=None)
@@ -341,7 +287,8 @@ def parse_args():
     parser.add_argument("--pose-window-deg", type=float, default=0.0, help="Symmetry-aware pose window around initial TM2D pose; 0 fixes pose.")
     parser.add_argument("--pose-search-res", type=float, default=None, help="Resolution used to build the pose library when pose window is nonzero.")
     parser.add_argument("--max-pose-count", type=int, default=None, help="Keep only the nearest N poses in each pose window.")
-    parser.add_argument("--symmetry", default=ops.symmetry)
+    parser.add_argument("--symmetry", default=su.DEFAULT_SYMMETRY)
+    parser.add_argument("--diameter-A", type=float, default=su.DEFAULT_DIAMETER_A, help="Particle diameter in Angstroms for pose-window sampling; defaults to coordinate-derived diameter.")
     parser.add_argument("--defocus-half-width-A", type=float, default=500.0)
     parser.add_argument("--defocus-step-A", type=float, default=10.0)
     parser.add_argument("--defocus-values-A", default=None, help="Comma-separated absolute defocus values; overrides center/half-width/step.")
@@ -372,30 +319,30 @@ def main():
         raise ValueError("Pass --fixed-model-dir or --fixed-star.")
 
     fixed_star, star_data, fixed_metadata = load_fixed_inputs(args)
-    model_metadata, chosen_peak = fixed.load_model_fine_defaults(args.model_fine_dir or fixed_metadata.get("model_fine_dir"))
+    model_metadata, chosen_peak = st.load_model_fine_defaults(args.model_fine_dir or fixed_metadata.get("model_fine_dir"))
     df_optics = star_data["optics"]
     df_particles = star_data["particles"]
     refine_df = select_refinement_rows(df_particles, args)
     if refine_df.empty:
         raise ValueError("No particles with fixed-model TM2D results found to refine.")
 
-    args.model_type = resolve_arg(args.model_type, (fixed_metadata, "model_type", None), (model_metadata, "model_type", ops.model_type))
-    args.workspace_root = resolve_arg(args.workspace_root, (fixed_metadata, "workspace_root", None), (model_metadata, "workspace_root", ops.default_workspace_root))
-    args.workspace_root_is_remote = resolve_arg(args.workspace_root_is_remote, (fixed_metadata, "workspace_root_is_remote", None), (model_metadata, "workspace_root_is_remote", ops.default_workspace_root_is_remote))
-    args.session_name = resolve_arg(args.session_name, (fixed_metadata, "session_name", None), (model_metadata, "session_name", ops.default_session_name))
-    args.session_laser_state = resolve_arg(args.session_laser_state, (fixed_metadata, "session_laser_state", None), (model_metadata, "session_laser_state", ops.default_session_laser_state))
-    args.session_job_type = resolve_arg(args.session_job_type, (fixed_metadata, "session_job_type", None), (model_metadata, "session_job_type", ops.default_session_job_type))
-    args.session_job_num = int(resolve_arg(args.session_job_num, (fixed_metadata, "session_job_num", None), (model_metadata, "session_job_num", ops.default_session_job_num)))
+    args.model_type = resolve_arg(args.model_type, (fixed_metadata, "model_type", None), (model_metadata, "model_type", su.DEFAULT_MODEL_TYPE))
+    args.workspace_root = resolve_arg(args.workspace_root, (fixed_metadata, "workspace_root", None), (model_metadata, "workspace_root", su.DEFAULT_WORKSPACE_ROOT))
+    args.workspace_root_is_remote = resolve_arg(args.workspace_root_is_remote, (fixed_metadata, "workspace_root_is_remote", None), (model_metadata, "workspace_root_is_remote", su.DEFAULT_WORKSPACE_ROOT_IS_REMOTE))
+    args.session_name = resolve_arg(args.session_name, (fixed_metadata, "session_name", None), (model_metadata, "session_name", su.DEFAULT_SESSION_NAME))
+    args.session_laser_state = resolve_arg(args.session_laser_state, (fixed_metadata, "session_laser_state", None), (model_metadata, "session_laser_state", su.DEFAULT_SESSION_LASER_STATE))
+    args.session_job_type = resolve_arg(args.session_job_type, (fixed_metadata, "session_job_type", None), (model_metadata, "session_job_type", su.DEFAULT_SESSION_JOB_TYPE))
+    args.session_job_num = int(resolve_arg(args.session_job_num, (fixed_metadata, "session_job_num", None), (model_metadata, "session_job_num", su.DEFAULT_SESSION_JOB_NUM)))
     args.particle_limit = resolve_arg(args.particle_limit, (fixed_metadata, "particle_limit", None), (model_metadata, "particle_limit", None))
-    args.devices = resolve_arg(args.devices, (fixed_metadata, "devices", None), (model_metadata, "devices", "0,1,2,3"))
-    args.pdb_fpath = resolve_arg(args.pdb_fpath, (fixed_metadata, "pdb_fpath", None), (model_metadata, "pdb_fpath", ops.DEFAULT_PDB_FPATH))
+    args.devices = resolve_arg(args.devices, (fixed_metadata, "devices", None), (model_metadata, "devices", su.DEFAULT_DEVICES))
+    args.pdb_fpath = resolve_arg(args.pdb_fpath, (fixed_metadata, "pdb_fpath", None), (model_metadata, "pdb_fpath", su.DEFAULT_PDB_FPATH))
 
     if args.pixel_size is None:
         args.pixel_size = float(fixed_metadata.get("pixel_size", chosen_peak.get("pixel_size")))
     if args.B_factor is None:
         args.B_factor = float(fixed_metadata.get("B_factor", chosen_peak.get("B_factor")))
 
-    device_ids = omf.parse_device_ids(args.devices)
+    device_ids = su.parse_device_ids(args.devices)
     vd.make_context(device_ids=device_ids)
 
     if args.output_dir is None:
@@ -406,13 +353,13 @@ def main():
     if args.output_star is None:
         args.output_star = str(output_dir / "ctf_refinement_tm2d_results.star")
 
-    config = ops.get_session_config(args)
+    config = st.get_session_config(args)
     print("loading stack...")
     stack = ps.read_stack_from_session(config.session, job_type=args.session_job_type, n_particles=args.particle_limit)
     image_shape = tuple(stack.im_orig[0].shape)
 
-    pdb_fpath, protein_coords = ops.load_protein_coords(args.pdb_fpath)
-    template = ops.make_template(
+    pdb_fpath, protein_coords = st.load_protein_coords(args.pdb_fpath)
+    template = st.make_template(
         args.model_type,
         image_shape,
         protein_coords,
@@ -428,7 +375,7 @@ def main():
     global_pose_lib = None
     if args.pose_window_deg > 0:
         pose_res = args.pose_search_res if args.pose_search_res is not None else float(fixed_metadata.get("search_res", model_metadata.get("search_res", 3.0)))
-        global_pose_lib, diameter, ang_step = ops.make_pose_library(protein_coords, pose_res, args.symmetry, ops.diameter_A)
+        global_pose_lib, diameter, ang_step = st.make_pose_library(protein_coords, pose_res, args.symmetry, args.diameter_A)
         print(f"pose library size: {len(global_pose_lib)} orientations, diameter: {diameter:.2f} A, angular step: {ang_step:.2f} deg")
     sym_ops = tu.point_group_symmetry_matrices(args.symmetry)
 
@@ -497,7 +444,7 @@ def main():
         )
         pose_lib = build_pose_library_for_particle(initial_pose, global_pose_lib, args, sym_ops)
         ctf_params, dynamic_values, ctf_summary = build_ctf_grid_for_particle(row, base_ctf_params, args)
-        image, error_msg = ops.preprocess_image_for_tm2d(
+        image, error_msg = st.preprocess_image_for_tm2d(
             stack.im_orig[stack_index],
             expected_shape=image_shape,
             crop_shape=image_shape,

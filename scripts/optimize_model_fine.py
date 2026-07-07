@@ -1,5 +1,4 @@
 import argparse
-import csv
 import json
 from pathlib import Path
 
@@ -9,65 +8,13 @@ import numpy as np
 import tm2d_utils as tu
 import vkdispatch as vd
 
-import optimize_pixel_size as ops
+import script_utils as su
+import script_tm2d as st
+from tm2d_utils import particle_stack as ps
 
 
 B_factor_guess_0 = 50.0
 
-
-def parse_range(center, half_width, step):
-    n_steps = int(round((2.0 * half_width) / step))
-    values = center - half_width + step * np.arange(n_steps + 1)
-    return np.round(values, 6)
-
-
-def parse_float_values(spec):
-    if spec is None or spec == "":
-        return None
-    return np.asarray([float(value) for value in spec.split(",")], dtype=float)
-
-
-def load_json_if_exists(path):
-    path = Path(path)
-    if not path.exists():
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
-
-
-def load_pixel_size_metadata(pixel_size_dir):
-    return load_json_if_exists(Path(pixel_size_dir) / "pixel_size_optimization_metadata.json")
-
-
-def load_best_fine_pixel_size(pixel_size_dir, summary_fpath=None):
-    summary_path = Path(summary_fpath) if summary_fpath is not None else Path(pixel_size_dir) / "pixel_size_optimization_summary.csv"
-    rows = []
-    with open(summary_path, newline="") as f:
-        for row in csv.DictReader(f):
-            if row.get("stage") != "fine":
-                continue
-            row["pixel_size"] = float(row["pixel_size"])
-            row["objective_z_score"] = float(row["objective_z_score"])
-            rows.append(row)
-
-    if not rows:
-        raise RuntimeError(f"No fine-stage rows found in {summary_path}")
-
-    return max(rows, key=lambda row: row["objective_z_score"])
-
-
-def resolve_arg(value, metadata, key, default):
-    if value is not None:
-        return value
-    if key in metadata and metadata[key] is not None:
-        return metadata[key]
-    return default
-
-
-def parse_device_ids(devices):
-    if isinstance(devices, str):
-        return [int(device) for device in devices.split(",") if device != ""]
-    return [int(device) for device in devices]
 
 
 def build_objective_grid(summary_rows, pixel_sizes, B_factors):
@@ -265,7 +212,7 @@ def save_model_fine_plot(summary_rows, pixel_sizes, B_factors, output_dir, model
 
 
 def make_template_for_pixel(pixel_size, image_shape, protein_coords, pdb_fpath, args):
-    return ops.make_template(
+    return st.make_template(
         args.model_type,
         image_shape,
         protein_coords,
@@ -296,7 +243,7 @@ def run_model_fine_grid(pixel_sizes, B_factors, selected_mics, stack, image_shap
         for b_ind, B_factor in enumerate(B_factors, start=1):
             print(f"... working on B factor {b_ind}/{len(B_factors)}: {B_factor:.2f} A^2")
             ctf_params.B = float(B_factor)
-            raw_rows = ops.run_pixel_size_candidate(
+            raw_rows = st.run_pixel_size_candidate(
                 stage="model_fine",
                 pixel_size=float(pixel_size),
                 selected_mics=selected_mics,
@@ -317,7 +264,7 @@ def run_model_fine_grid(pixel_sizes, B_factors, selected_mics, stack, image_shap
                 row["B_factor"] = float(B_factor)
             raw_rows_all.extend(raw_rows)
 
-            summary = ops.summarize_scores(
+            summary = st.summarize_scores(
                 pixel_size=float(pixel_size),
                 stage="model_fine",
                 raw_rows=raw_rows,
@@ -331,8 +278,8 @@ def run_model_fine_grid(pixel_sizes, B_factors, selected_mics, stack, image_shap
                 f"objective z = {summary['objective_z_score']:.3f}"
             )
 
-            ops.write_csv(Path(args.output_dir) / "model_fine_summary.csv", summary_rows)
-            ops.write_csv(Path(args.output_dir) / "model_fine_particles.csv", raw_rows_all)
+            su.write_csv(Path(args.output_dir) / "model_fine_summary.csv", summary_rows)
+            su.write_csv(Path(args.output_dir) / "model_fine_particles.csv", raw_rows_all)
             save_model_fine_plot(summary_rows, pixel_sizes, B_factors, args.output_dir, model_type=args.model_type)
 
     best = max(summary_rows, key=lambda row: row["objective_z_score"])
@@ -358,10 +305,12 @@ def parse_args():
     parser.add_argument("--B-factor-values", default="", help="Comma-separated B factors; overrides estimate/half-width/step.")
     parser.add_argument("--pdb-fpath", default=None, help="Path to the PDB used for atomic templates.")
     parser.add_argument("--model-type", default=None, choices=["atomic", "density"])
+    parser.add_argument("--symmetry", default=su.DEFAULT_SYMMETRY, help="Point-group symmetry used to reduce/search orientations, e.g. C1, C2, O.")
+    parser.add_argument("--diameter-A", type=float, default=su.DEFAULT_DIAMETER_A, help="Particle diameter in Angstroms for Crowther angular sampling; defaults to the coordinate-derived diameter.")
     parser.add_argument("--workspace-root", default=None)
-    parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=ops.parse_bool, default=None)
+    parser.add_argument("--workspace-root-is-remote", "--remote-is-true", dest="workspace_root_is_remote", type=su.parse_bool, default=None)
     parser.add_argument("--session-name", default=None)
-    parser.add_argument("--session-laser-state", type=ops.parse_bool, default=None)
+    parser.add_argument("--session-laser-state", type=su.parse_bool, default=None)
     parser.add_argument("--session-job-type", default=None)
     parser.add_argument("--session-job-num", type=int, default=None)
     parser.add_argument("--particle-limit", type=int, default=None)
@@ -371,12 +320,12 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=24)
     parser.add_argument("--top-n", type=int, default=None)
     parser.add_argument("--score-stat", default=None, choices=["mean", "median"])
-    parser.add_argument("--defocus-offsets-A", type=ops.parse_float_list, default=None, help="Comma-separated defocus offsets in Angstroms.")
+    parser.add_argument("--defocus-offsets-A", type=su.parse_float_list, default=None, help="Comma-separated defocus offsets in Angstroms.")
     parser.add_argument("--ctf-defocus", type=float, default=None, help="Override STAR defocus with a constant value in Angstroms.")
     parser.add_argument("--ctf-astigmatism", type=float, default=None, help="Override STAR astigmatism magnitude with a constant value in Angstroms.")
     parser.add_argument("--ctf-astigmatism-angle", type=float, default=None, help="Override STAR astigmatism angle with a constant value in degrees.")
     parser.add_argument("--ctf-phase-shift", type=float, default=None, help="Override STAR phase shift with a constant value in degrees.")
-    parser.add_argument("--search-res", type=float, default=None)
+    parser.add_argument("--search-res", type=float, default=su.DEFAULT_SEARCH_RES_A)
     parser.add_argument("--devices", default=None, help="Comma-separated vkdispatch device IDs for tm2d matching.")
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--density-helper-fpath", default=None)
@@ -389,52 +338,52 @@ def parse_args():
 
 def main():
     args = parse_args()
-    metadata = load_pixel_size_metadata(args.pixel_size_dir)
-    best_fine_row = load_best_fine_pixel_size(args.pixel_size_dir, args.pixel_size_summary)
+    metadata = su.load_pixel_size_metadata(args.pixel_size_dir)
+    best_fine_row = su.load_best_fine_pixel_size(args.pixel_size_dir, args.pixel_size_summary)
 
-    args.model_type = resolve_arg(args.model_type, metadata, "model_type", ops.model_type)
-    args.workspace_root = resolve_arg(args.workspace_root, metadata, "workspace_root", ops.default_workspace_root)
-    args.workspace_root_is_remote = resolve_arg(args.workspace_root_is_remote, metadata, "workspace_root_is_remote", ops.default_workspace_root_is_remote)
-    args.session_name = resolve_arg(args.session_name, metadata, "session_name", ops.default_session_name)
-    args.session_laser_state = resolve_arg(args.session_laser_state, metadata, "session_laser_state", ops.default_session_laser_state)
-    args.session_job_type = resolve_arg(args.session_job_type, metadata, "session_job_type", ops.default_session_job_type)
-    args.session_job_num = int(resolve_arg(args.session_job_num, metadata, "session_job_num", ops.default_session_job_num))
-    args.particle_limit = int(resolve_arg(args.particle_limit, metadata, "particle_limit", ops.particle_limit))
-    args.num_micrographs = int(resolve_arg(args.num_micrographs, metadata, "num_micrographs", 4))
-    args.micrograph_start_index = int(resolve_arg(args.micrograph_start_index, metadata, "micrograph_start_index", 0))
-    args.particles_per_micrograph = int(resolve_arg(args.particles_per_micrograph, metadata, "particles_per_micrograph", 50))
-    args.top_n = int(resolve_arg(args.top_n, metadata, "top_n", 100))
-    args.score_stat = resolve_arg(args.score_stat, metadata, "score_stat", "mean")
-    args.search_res = float(resolve_arg(args.search_res, metadata, "search_res", 3.0))
-    args.defocus_offsets_A = resolve_arg(args.defocus_offsets_A, metadata, "defocus_offsets_A", [0.0])
-    args.ctf_defocus = resolve_arg(args.ctf_defocus, metadata, "ctf_defocus", None)
-    args.ctf_astigmatism = resolve_arg(args.ctf_astigmatism, metadata, "ctf_astigmatism", None)
-    args.ctf_astigmatism_angle = resolve_arg(args.ctf_astigmatism_angle, metadata, "ctf_astigmatism_angle", None)
-    args.ctf_phase_shift = resolve_arg(args.ctf_phase_shift, metadata, "ctf_phase_shift", None)
-    args.devices = resolve_arg(args.devices, metadata, "devices", "0,1,2,3")
-    args.pdb_fpath = resolve_arg(args.pdb_fpath, metadata, "pdb_fpath", ops.DEFAULT_PDB_FPATH)
+    args.model_type = su.resolve_arg(args.model_type, metadata, "model_type", su.DEFAULT_MODEL_TYPE)
+    args.workspace_root = su.resolve_arg(args.workspace_root, metadata, "workspace_root", su.DEFAULT_WORKSPACE_ROOT)
+    args.workspace_root_is_remote = su.resolve_arg(args.workspace_root_is_remote, metadata, "workspace_root_is_remote", su.DEFAULT_WORKSPACE_ROOT_IS_REMOTE)
+    args.session_name = su.resolve_arg(args.session_name, metadata, "session_name", su.DEFAULT_SESSION_NAME)
+    args.session_laser_state = su.resolve_arg(args.session_laser_state, metadata, "session_laser_state", su.DEFAULT_SESSION_LASER_STATE)
+    args.session_job_type = su.resolve_arg(args.session_job_type, metadata, "session_job_type", su.DEFAULT_SESSION_JOB_TYPE)
+    args.session_job_num = int(su.resolve_arg(args.session_job_num, metadata, "session_job_num", su.DEFAULT_SESSION_JOB_NUM))
+    args.particle_limit = int(su.resolve_arg(args.particle_limit, metadata, "particle_limit", su.DEFAULT_PARTICLE_LIMIT))
+    args.num_micrographs = int(su.resolve_arg(args.num_micrographs, metadata, "num_micrographs", 4))
+    args.micrograph_start_index = int(su.resolve_arg(args.micrograph_start_index, metadata, "micrograph_start_index", 0))
+    args.particles_per_micrograph = int(su.resolve_arg(args.particles_per_micrograph, metadata, "particles_per_micrograph", 50))
+    args.top_n = int(su.resolve_arg(args.top_n, metadata, "top_n", 100))
+    args.score_stat = su.resolve_arg(args.score_stat, metadata, "score_stat", "mean")
+    args.search_res = float(args.search_res)
+    args.defocus_offsets_A = su.resolve_arg(args.defocus_offsets_A, metadata, "defocus_offsets_A", [0.0])
+    args.ctf_defocus = su.resolve_arg(args.ctf_defocus, metadata, "ctf_defocus", None)
+    args.ctf_astigmatism = su.resolve_arg(args.ctf_astigmatism, metadata, "ctf_astigmatism", None)
+    args.ctf_astigmatism_angle = su.resolve_arg(args.ctf_astigmatism_angle, metadata, "ctf_astigmatism_angle", None)
+    args.ctf_phase_shift = su.resolve_arg(args.ctf_phase_shift, metadata, "ctf_phase_shift", None)
+    args.devices = su.resolve_arg(args.devices, metadata, "devices", su.DEFAULT_DEVICES)
+    args.pdb_fpath = su.resolve_arg(args.pdb_fpath, metadata, "pdb_fpath", su.DEFAULT_PDB_FPATH)
 
-    device_ids = parse_device_ids(args.devices)
+    device_ids = su.parse_device_ids(args.devices)
     vd.make_context(device_ids=device_ids)
 
     center_pixel_size = float(args.pixel_size) if args.pixel_size is not None else float(best_fine_row["pixel_size"])
-    pixel_sizes = parse_range(center_pixel_size, args.pixel_size_half_width, args.pixel_size_step)
-    B_factor_values = parse_float_values(args.B_factor_values)
+    pixel_sizes = su.parse_range(center_pixel_size, args.pixel_size_half_width, args.pixel_size_step)
+    B_factor_values = su.parse_float_values(args.B_factor_values)
     if B_factor_values is None:
-        B_factor_values = parse_range(args.B_factor_estimate, args.B_factor_half_width, args.B_factor_step)
+        B_factor_values = su.parse_range(args.B_factor_estimate, args.B_factor_half_width, args.B_factor_step)
     B_factor_values = np.sort(np.asarray(B_factor_values, dtype=float))
 
     output_dir = args.output_dir
     if output_dir is None:
-        output_dir = ops.make_default_output_dir("model_fine", args) + f"_B{args.B_factor_estimate:g}"
+        output_dir = su.make_default_output_dir("model_fine", args) + f"_B{args.B_factor_estimate:g}"
     args.output_dir = output_dir
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    config = ops.get_session_config(args)
+    config = st.get_session_config(args)
     print("loading stack...")
-    stack = ops.ps.read_stack_from_session(config.session, job_type=config.job_type, n_particles=args.particle_limit)
+    stack = ps.read_stack_from_session(config.session, job_type=config.job_type, n_particles=args.particle_limit)
     mics_and_inds = stack.get_substacks_inds_by_field("mic_fpath")
-    selected_mics = ops.select_micrographs(
+    selected_mics = st.select_micrographs(
         mics_and_inds,
         args.num_micrographs,
         args.particles_per_micrograph,
@@ -444,12 +393,12 @@ def main():
     print(f"selected {sum(len(inds) for _, inds in selected_mics)} particles from {len(selected_mics)} micrographs")
 
     image_shape = tuple(stack.im_orig[0].shape)
-    pdb_fpath, protein_coords = ops.load_protein_coords(args.pdb_fpath)
-    pose_lib, diameter, ang_step = ops.make_pose_library(
+    pdb_fpath, protein_coords = st.load_protein_coords(args.pdb_fpath)
+    pose_lib, diameter, ang_step = st.make_pose_library(
         protein_coords=protein_coords,
         search_res=args.search_res,
-        symmetry=ops.symmetry,
-        diameter_a=ops.diameter_A,
+        symmetry=args.symmetry,
+        diameter_a=args.diameter_A,
     )
     print(f"pose library size: {len(pose_lib)} orientations, diameter: {diameter:.2f} A, angular step: {ang_step:.2f} deg")
 
@@ -488,6 +437,10 @@ def main():
         "ctf_astigmatism_angle": args.ctf_astigmatism_angle,
         "ctf_phase_shift": args.ctf_phase_shift,
         "search_res": args.search_res,
+        "symmetry": args.symmetry,
+        "diameter_A": args.diameter_A,
+        "pose_diameter_A": float(diameter),
+        "pose_angular_step_deg": float(ang_step),
         "pose_library_size": int(len(pose_lib)),
         "devices": device_ids,
     }
